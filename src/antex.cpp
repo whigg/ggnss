@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cassert>
 #include "antex.hpp"
+#include "datetime_read.hpp"
 #ifdef DEBUG
 #include <iostream>
 #endif
@@ -309,8 +310,14 @@ __resolve_satellite_antenna_line__(const char* line, Satellite& sat)
     // 'E','C','J','S') together with the PRN number (GPS, Compass), the slot 
     // number (GLONASS), the SVID number (Galileo), the 'PRN number minus 192' 
     // (QZSS) or the 'PRN number minus 100' (SBAS) has to be specified.
-    sat.system() = ngpt::char_to_satsys(line[20]);
-    sat.prn()    = std::stoi(std::string(line+21, 5));
+    if (line[20] != ' ') {
+        try {
+            sat.system() = ngpt::char_to_satsys(line[20]);
+            sat.prn()    = std::stoi(std::string(line+21, 5));
+        } catch (std::exception&) {
+            return 5;
+        }
+    }
 
     // next 10 fields (aka line[40-50]) are:
     // Satellite code "sNNN" (optional)
@@ -331,7 +338,44 @@ __resolve_satellite_antenna_line__(const char* line, Satellite& sat)
 }
 
 int
-Antex::find_satellite_antenna(int prn)
+__find_time_interval__(std::ifstream& fin, ngpt::datetime<ngpt::second>& at)
+{
+    char line[MAX_GRID_CHARS];
+
+    // next field is 'METH / BY / # / DATE'
+    if (!__istream.getline(line, MAX_GRID_CHARS)
+        || std::strncmp(line+60, "METH / BY / # / DATE", 20)) {
+#ifdef DEBUG
+        std::cerr<<"\n[ERROR] skip_rest_of_antenna() no METH / BY / DATE";
+#endif
+        return 10;
+    }
+
+    int  dummy_it = 0;
+    bool interval_found = false;
+    ngpt::datetime<ngpt::second> from,
+                                 to;
+    do {
+        __istream.getline(line, MAX_GRID_CHARS);
+        dummy_it++;
+        if (!std::strncmp(line+60, "VALID FROM", 10)) {
+
+        } else if (!std::strncmp(line+60, "VALID UNTIL", 11)) {
+        }
+    } while (std::strncmp(line+60, "END OF ANTENNA", 14) && dummy_it < 5000);
+
+    if (dummy_it >= 5000) {
+#ifdef DEBUG
+        std::cerr<<"\n[ERROR] skip_rest_of_antenna() no END OF ANTENNA";
+#endif
+        return 1;
+    }
+    
+    return 0;
+}
+
+int
+Antex::find_satellite_antenna(int prn, satellite_system ss, ngpt::datetime<ngpt::second>& at)
 {
     char line[MAX_HEADER_CHARS];
     
@@ -344,21 +388,15 @@ Antex::find_satellite_antenna(int prn)
         stat2;
 
     while ( !(stat1 = read_next_antenna_type(cur_ant, line)) ) {
+        cur_sat.system() = satellite_system::mixed;
         if (!__resolve_satellite_antenna_line__(line, cur_sat)) {
-            if (cur_sat.prn() == prn) {
-                std::cout<<"\nMatched prn, at: "<<line;
+            if (cur_sat.prn() == prn && cur_sat.system() == ss) {
+                std::cout<<"\nMatched satellite at: "<<line;
             }
         } else {
-            std::cout<<"\nLast satellite antenna was: "<<line;
-            break;
+            // std::cout<<"\nUnresolved antenna line: "<<line;
+            ;
         }
-        /*
-        if (!sat.antenna().compare(cur_ant.__underlying_char__())) {
-            if (!__resolve_satellite_antenna_line__(line, cur_sat)) {
-                std::cout<<"\n --- Found satellite antenna: "<<cur_sat.antenna().__underlying_char__() << ", "<<cur_sat.prn()<<", " << cur_sat.svn();
-            }
-        }
-        best_match_pos = __istream.tellg();*/
         if ((stat2 = skip_rest_of_antenna())) break;
     }
     // some error status is set

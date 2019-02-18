@@ -50,11 +50,11 @@ int main(int argc, char* argv[])
         p.dummy_print(std::cout);
     }
 
-    Satellite sat (ngpt::satellite_system::gps);
+    Satellite sat (ngpt::satellite_system::galileo);
     sat.prn() = 12;
     
     //std::ifstream::pos_type pos;
-    j0 = atx.find_satellite_antenna(sat.prn());
+    j0 = atx.find_satellite_antenna(sat.prn(), sat.system());
     std::cout<<"\nfind_satellite_antenna returned: "<<j0;
 
     return 0;
