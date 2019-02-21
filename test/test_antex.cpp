@@ -5,6 +5,7 @@ using ngpt::Antex;
 using ngpt::Antenna;
 using ngpt::Satellite;
 using ngpt::AntennaPcoList;
+using ngpt::seconds;
 
 int main(int argc, char* argv[])
 {
@@ -52,9 +53,19 @@ int main(int argc, char* argv[])
 
     Satellite sat (ngpt::satellite_system::galileo);
     sat.prn() = 12;
+    auto dt = ngpt::datetime<seconds>(ngpt::year(2017),
+                                 ngpt::month(10),
+                                 ngpt::day_of_month(4), seconds(0));
     
     //std::ifstream::pos_type pos;
-    j0 = atx.find_satellite_antenna(sat.prn(), sat.system());
+    j0 = atx.get_antenna_pco(sat.prn(), sat.system(), dt, pco);
+    std::cout<<"\nfind_satellite_antenna returned: "<<j0;
+    for (const auto p : pco.__vecref__()) { 
+        std::cout<<"\n\t";
+        p.dummy_print(std::cout);
+    }
+    
+    j0 = atx.get_antenna_pco(1204, sat.system(), dt, pco);
     std::cout<<"\nfind_satellite_antenna returned: "<<j0;
 
     return 0;

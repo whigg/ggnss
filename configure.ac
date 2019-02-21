@@ -39,6 +39,9 @@ AC_PROG_MKDIR_P
 # Checks for optional programs.
 
 # Checks for libraries.
+#AC_SEARCH_LIBS([_datetime_no_opt_], [ggdatetime], [], [
+#  AC_MSG_ERROR([unable to find the _datetime_no_opt_() function])
+#])
 
 # Checks for header files.
 

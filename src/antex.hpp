@@ -71,9 +71,12 @@ public:
     int
     get_antenna_pco(const Antenna& ant_in, AntennaPcoList& pco_list,
         bool must_match_serial=false);
+    int
+    get_antenna_pco(int prn, satellite_system ss, 
+        const ngpt::datetime<ngpt::seconds>& at, AntennaPcoList& pco_list);
 
     int
-    find_satellite_antenna(int, satellite_system, const ngpt::datetime<ngpt::seconds>& at);
+    find_satellite_antenna(int, satellite_system, const ngpt::datetime<ngpt::seconds>& at, pos_type&);
 #ifdef DEBUG
     int read_headerD() {return this->read_header();}
     int read_next_antenna_typeD(ngpt::Antenna& antenna){return this->read_next_antenna_type(antenna);}

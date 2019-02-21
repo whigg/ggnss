@@ -9,7 +9,9 @@
 
 using ngpt::Antex;
 using ngpt::Antenna;
-using ngpt::Satellite;
+using ngpt::Satellite; 
+
+// TODO always clear the stream if there is a posibility we have reached EOF
 
 /// No header line can have more than 80 chars. However, there are cases when
 /// they  exceed this limit, just a bit ...
@@ -222,7 +224,9 @@ Antex::skip_rest_of_antenna()
 {
     char line[MAX_GRID_CHARS];
 
+    // actually, why even bother?? the stream could be anywhere ...
     // next field is 'METH / BY / # / DATE'
+    /*
     if (!__istream.getline(line, MAX_GRID_CHARS)
         || std::strncmp(line+60, "METH / BY / # / DATE", 20)) {
 #ifdef DEBUG
@@ -230,6 +234,7 @@ Antex::skip_rest_of_antenna()
 #endif
         return 10;
     }
+    */
 
     int dummy_it = 0;
     do {
@@ -375,15 +380,21 @@ __find_time_interval__(std::ifstream& fin, const ngpt::datetime<ngpt::seconds>& 
         return 1;
     }
     
-    if (!from_ok || !to_ok) {
-        return 5;
-    } else {
-        return (from >= at && at <= to);
+    // note that if we have found "VALID FROM" but not "VALID UNTIL", then
+    // "VALID UNTIL" is forever ....
+    if (!from_ok) {
+        return 10;
+    } else if (from_ok && !to_ok) {
+        // to = ngpt::datetime<ngpt::seconds>::max();
+        // to_ok = true;
+        return !(from <= at);
     }
+    
+    return !(from <= at && at <= to);
 }
 
 int
-Antex::find_satellite_antenna(int prn, satellite_system ss, const ngpt::datetime<ngpt::seconds>& at)
+Antex::find_satellite_antenna(int prn, satellite_system ss, const ngpt::datetime<ngpt::seconds>& at, pos_type& ant_pos)
 {
     char line[MAX_HEADER_CHARS];
     
@@ -397,11 +408,11 @@ Antex::find_satellite_antenna(int prn, satellite_system ss, const ngpt::datetime
 
     while ( !(stat1 = read_next_antenna_type(cur_ant, line)) ) {
         cur_sat.system() = satellite_system::mixed;
+        ant_pos = __istream.tellg();
         if (!__resolve_satellite_antenna_line__(line, cur_sat)) {
             if (cur_sat.prn() == prn && cur_sat.system() == ss) {
-                std::cout<<"\nMatched satellite at: "<<line;
                 if (!__find_time_interval__(__istream, at)) {
-                    std::cout<<"\nFuck yeah, matched date!";
+                    return 0;
                 }
             }
         } else {
@@ -415,7 +426,30 @@ Antex::find_satellite_antenna(int prn, satellite_system ss, const ngpt::datetime
         return 1;
     }
 
-    return 0;
+    return 10;
+}
+
+int
+Antex::get_antenna_pco(int prn, satellite_system ss, const ngpt::datetime<ngpt::seconds>& at, AntennaPcoList& pco_list)
+{   
+    pos_type ant_pos;
+
+    // clean any entries in pco_list
+    pco_list.__vecref__().clear();
+    
+    // match the antenna
+    int ant_found = find_satellite_antenna(prn, ss, at, ant_pos);
+    if (ant_found>0) {
+        return ant_found;
+    } 
+
+    // go to the position where the antenna was found
+    __istream.seekg(ant_pos, std::ios_base::beg);
+
+    // we should now be ready to read "METH / BY / # / DATE"
+    int status = __collect_pco__(__istream, pco_list);
+
+    return status;
 }
 
 /// Get the list of PCO values for a given antenna (aka PCO values for each of
