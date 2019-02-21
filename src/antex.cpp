@@ -2,7 +2,7 @@
 #include <cstring>
 #include <cassert>
 #include "antex.hpp"
-#include "datetime_read.hpp"
+#include "ggdatetime/datetime_read.hpp"
 #ifdef DEBUG
 #include <iostream>
 #endif
@@ -338,12 +338,12 @@ __resolve_satellite_antenna_line__(const char* line, Satellite& sat)
 }
 
 int
-__find_time_interval__(std::ifstream& fin, ngpt::datetime<ngpt::second>& at)
+__find_time_interval__(std::ifstream& fin, const ngpt::datetime<ngpt::seconds>& at)
 {
     char line[MAX_GRID_CHARS];
 
     // next field is 'METH / BY / # / DATE'
-    if (!__istream.getline(line, MAX_GRID_CHARS)
+    if (!fin.getline(line, MAX_GRID_CHARS)
         || std::strncmp(line+60, "METH / BY / # / DATE", 20)) {
 #ifdef DEBUG
         std::cerr<<"\n[ERROR] skip_rest_of_antenna() no METH / BY / DATE";
@@ -352,15 +352,19 @@ __find_time_interval__(std::ifstream& fin, ngpt::datetime<ngpt::second>& at)
     }
 
     int  dummy_it = 0;
-    bool interval_found = false;
-    ngpt::datetime<ngpt::second> from,
-                                 to;
+    bool from_ok = false,
+         to_ok   = false;
+    ngpt::datetime<ngpt::seconds> from,
+                                  to;
     do {
-        __istream.getline(line, MAX_GRID_CHARS);
+        fin.getline(line, MAX_GRID_CHARS);
         dummy_it++;
         if (!std::strncmp(line+60, "VALID FROM", 10)) {
-
+            from = ngpt::strptime_ymd_hms<ngpt::seconds>(line);
+            from_ok = true;
         } else if (!std::strncmp(line+60, "VALID UNTIL", 11)) {
+            to = ngpt::strptime_ymd_hms<ngpt::seconds>(line);
+            to_ok = true;
         }
     } while (std::strncmp(line+60, "END OF ANTENNA", 14) && dummy_it < 5000);
 
@@ -371,11 +375,15 @@ __find_time_interval__(std::ifstream& fin, ngpt::datetime<ngpt::second>& at)
         return 1;
     }
     
-    return 0;
+    if (!from_ok || !to_ok) {
+        return 5;
+    } else {
+        return (from >= at && at <= to);
+    }
 }
 
 int
-Antex::find_satellite_antenna(int prn, satellite_system ss, ngpt::datetime<ngpt::second>& at)
+Antex::find_satellite_antenna(int prn, satellite_system ss, const ngpt::datetime<ngpt::seconds>& at)
 {
     char line[MAX_HEADER_CHARS];
     
@@ -392,6 +400,9 @@ Antex::find_satellite_antenna(int prn, satellite_system ss, ngpt::datetime<ngpt:
         if (!__resolve_satellite_antenna_line__(line, cur_sat)) {
             if (cur_sat.prn() == prn && cur_sat.system() == ss) {
                 std::cout<<"\nMatched satellite at: "<<line;
+                if (!__find_time_interval__(__istream, at)) {
+                    std::cout<<"\nFuck yeah, matched date!";
+                }
             }
         } else {
             // std::cout<<"\nUnresolved antenna line: "<<line;

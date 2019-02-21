@@ -5,7 +5,7 @@
 #include "satellite.hpp"
 #include "antenna.hpp"
 #include "antenna_pcv.hpp"
-#include "datetime.hpp"
+#include "ggdatetime/dtcalendar.hpp"
 
 /// @file      antex.hpp
 ///
@@ -73,7 +73,7 @@ public:
         bool must_match_serial=false);
 
     int
-    find_satellite_antenna(int, satellite_system, const ngpt::datetime<ngpt::second>& at);
+    find_satellite_antenna(int, satellite_system, const ngpt::datetime<ngpt::seconds>& at);
 #ifdef DEBUG
     int read_headerD() {return this->read_header();}
     int read_next_antenna_typeD(ngpt::Antenna& antenna){return this->read_next_antenna_type(antenna);}
