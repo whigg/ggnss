@@ -1,200 +1,195 @@
 #ifndef __GNSS_ANTENNA_HPP__
 #define __GNSS_ANTENNA_HPP__
 
-/// @file      antenna.hpp
+/// @file    antenna.hpp
 ///
 /// @version   0.10
 ///
-/// @author    xanthos@mail.ntua.gr <br>
-///            danast@mail.ntua.gr
+/// @author    xanthos@mail.ntua.gr
+///        danast@mail.ntua.gr
 ///
-/// @date      Mon 11 Feb 2019 01:08:33 PM EET 
+/// @date    Mon 11 Feb 2019 01:08:33 PM EET 
 ///
-/// @brief     GNSS Antenna (plus Radome) Class. Used both for stations and
-///            satellites.
+/// @brief     GNSS Receiver and Satellite Antenna Classes.
 /// 
-/// @see       http://www.epncb.oma.be/ftp/station/general/rcvr_ant.tab
+/// @see     http://www.epncb.oma.be/ftp/station/general/rcvr_ant.tab
 ///
-/// @copyright Copyright © 2019 Dionysos Satellite Observatory, <br>
-///            National Technical University of Athens. <br>
-///            This work is free. You can redistribute it and/or modify it under
-///            the terms of the Do What The Fuck You Want To Public License,
-///            Version 2, as published by Sam Hocevar. See http://www.wtfpl.net/
-///            for more details.
+/// @copyright Copyright © 2019 Dionysos Satellite Observatory,
+///        National Technical University of Athens.
+///        This work is free. You can redistribute it and/or modify it under
+///        the terms of the Do What The Fuck You Want To Public License,
+///        Version 2, as published by Sam Hocevar. See http://www.wtfpl.net/
+///        for more details.
 
 namespace ngpt
 {
 
-    /// Namespace to hide antenna specific details.
-    namespace antenna_details
-    {
-        /// Maximum number of characters describing a GNSS antenna model 
-        /// (no radome).
-        constexpr std::size_t antenna_model_max_chars { 15 };
+/// Namespace to hide antenna specific details.
+namespace antenna_details
+{
+  /// Maximum number of characters describing a GNSS antenna model 
+  /// (no radome) for receiver antennas
+  constexpr std::size_t antenna_model_max_chars { 15 };
 
-        /// Maximum number of characters describing a GNSS antenna radome type
-        constexpr std::size_t antenna_radome_max_chars { 4 };
+  /// Maximum number of characters describing a GNSS antenna radome type
+  /// for receiver antennas
+  constexpr std::size_t antenna_radome_max_chars { 4 };
 
-        /// Maximum number of characters describing a GNSS antenna serial number
-        constexpr std::size_t antenna_serial_max_chars { 20 };
+  /// Maximum number of characters describing a GNSS antenna serial number
+  /// receiver antennas
+  constexpr std::size_t antenna_serial_max_chars { 20 };
 
-        /// Maximum size to represent all fields, including whitespaces and
-        /// the (last) null terminating character.
-        constexpr std::size_t antenna_full_max_chars
-        {  antenna_model_max_chars  + 1 /* whitespace */
-         + antenna_radome_max_chars
-         + antenna_serial_max_chars + 1 /* null-reminating char */
-        };
+  /// Maximum size to represent all fields, including whitespaces and
+  /// the (last) null terminating character for receiver antennas
+  constexpr std::size_t antenna_full_max_chars
+  {  antenna_model_max_chars  + 1 /* whitespace */
+   + antenna_radome_max_chars
+   + antenna_serial_max_chars + 1 /* null-reminating char */
+  };
 
-        constexpr std::size_t satellite_antenna_max_chars {20};
-    }
+  /// Maximum size of a satellite antenna (chars)
+  constexpr std::size_t satellite_antenna_max_chars {20};
+}
 
-/// @class    Antenna
+/// @class ReceiverAntenna
 ///
-/// @details  This class holds a GNSS Antenna either for a satellite or a 
-///           receiver. Every antenna is represented by a specific Antenna model
-///           name, a Radome model and a Serial Number. These are all concateneted
-///           in a char array (but not exactly a c-string). See the note below
-///           for how this character array is formed.
+/// @details A ReceiverAntenna is just a string, combining the
+///          * antenna model
+///          * radome
+///          * serial number (if any)
+///          According to rcvr_ant this is how they are defined:
+///          Antennas:  15 columns maximum
+///           First three characters are manufacturer code (except satellites)
+///            Allowed in manufacturer code: - and A-Z and 0-9
+///            Allowed in model name: /-_.+ and A-Z and 0-9
+///            Model name must start with A-Z or 0-9
+///          Radomes:   4 columns; A-Z and 0-9 allowed
+///          Antenna+Radome: Combine them with the radome code in columns 
+///           17-20. Fill with spaces between the end of the antenna and column
+///           17.
+///           Example: AOAD/M_T        SCIT
+///          (**note** that this description, copyied from rcvr_ant, is not
+///          zero offset, thus each number should be -1).
+///          To represent such an antenna, we are using a contiguous 40+1 char
+///          string. The first twenty chars are the model+serial and the
+///          following 20 chars are the serial number (if any).
 ///
-/// @see      rcvr_ant
-///
-/// @note     The c-string array allocated for each instance, looks like:
-/*
-@verbatim
-  N = antenna_model_max_chars
-  M = antenna_radome_max_chars
-  K = antenna_serial_max_chars
-  [0,     N)       antenna model name
-  [N+1,   N+M)     antenna radome name
-  [N+M+1, N+M+K+1) antenna serial number
-
-  | model name      |   | radome      | serial number     
-  v                 v   v             v    
-  +---+---+-...-+---+---+---+-...-+---+-----+-----+-...-+-------+
-  | 0 | 1 |     |N-1| N |N+1|     |N+M|N+M+1|N+M+2|     |N+M+K+1|
-  +---+---+-...-+---+---+---+-...-+---+-----+-----+-...-+-------+
-                      ^                                     ^       
-                      |                                     |      
-            whitespace character                           '\0'
-
-@endverbatim
- */
+/// @see    rcvr_ant
 ///
 /// @example  test_antenna.cpp
-///           An example to show how to use the Antenna class.
-///
-class Antenna
+///       An example to show how to use the Antenna class.
+class ReceiverAntenna
 {
 public:
 
-    /// Antenna Type: Receiver or Satellite.
-    enum class Antenna_Type : char 
-    { 
-      Receiver_Antenna, 
-      Satellite_Antenna 
-    };
+  /// @brief Default constructor; model+radome are empty (i.e. filled with
+  ///        whitespace characters, serial is nothing.
+  ReceiverAntenna() noexcept 
+  {initialize();}
 
-    /// @brief Default constructor; model, radome and serial are set to 
-    ///        whitespace
-    Antenna() noexcept
-    { 
-        set_to_wspace();
-        set_none_radome();
-    }
+  /// @brief Constructor from a c-string (model+radome)
+  explicit ReceiverAntenna 
+  (const char*) noexcept;
 
-    /// @brief Constructor from a c-string (model+radome+serial if any)
-    explicit Antenna
-    (const char*) noexcept;
+  /// @brief Constructor from a string (model+radome)
+  explicit ReceiverAntenna
+  (const std::string&) noexcept;
 
-    /// @brief Constructor from a string (model+radome+serial if any)
-    explicit Antenna
-    (const std::string&) noexcept;
+  /// @brief Equality operator (checks antenna type, radome and serial nr).
+  bool
+  is_same(const ReceiverAntenna&) const noexcept;
 
-    /// @brief Equality operator (checks antenna type, radome and serial nr).
-    bool
-    is_same(const Antenna&) const noexcept;
+  /// @brief Compare antenna's serial number to a c-string
+  bool
+  compare_serial(const char*) const noexcept;
 
-    /// @brief Compare antenna's serial number to a c-string
-    bool
-    compare_serial(const char*) const noexcept;
+  /// @brief Check if antenna has serial number
+  bool
+  has_serial() const noexcept;
 
-    /// @brief Check if antenna ha serial number
-    bool
-    has_serial() const noexcept;
+  /// @brief Compare model and radome (diregard serials if any)
+  bool
+  compare_model(const Antenna&) const noexcept;
 
-    /// @brief Compare model and radome (diregard serials if any)
-    bool
-    compare_model(const Antenna&) const noexcept;
+  /// @brief Set antenna's serial number
+  void
+  set_serial_nr(const char*) noexcept;
 
-    /// @brief Set antenna's serial number
-    void
-    set_serial_nr(const char*) noexcept;
-
-    /// @brief Antenna model name as string.
-    std::string
-    model_str() const noexcept;
-
-    /// @brief Antenna radome name as string.
-    std::string
-    radome_str() const noexcept;
-
-    /// @brief
-    const char*
-    __underlying_char__() const noexcept
-    { return __name; }
+  /// @brief Get the underlying c-string
+  const char*
+  __underlying_char__() const noexcept
+  { return __name; }
 
 #ifdef DEBUG
-    std::string
-    to_string() const noexcept;
+  std::string
+  to_string() const noexcept;
 #endif
 
 private:
 
-    /// @brief Initialize antenna, aka set all chars to " ".
-    void
-    set_to_wspace() noexcept;
+  /// @brief Initialize antenna 
+  void
+  initialize() noexcept;
 
-    /// @brief Set radome to 'NONE'
-    void
-    set_none_radome() noexcept;
+  /// @brief Set radome to 'NONE'
+  void
+  set_none_radome() noexcept;
+  
+  /// @brief check if radome is empty (aka only whitespaces)
+  bool
+  radome_is_empty() const noexcept;
 
-    /// @brief Copy from an std::string
-    void
-    copy_from_str(const std::string&) noexcept;
-
-    /// @brief Copy from a c-string
-    void
-    copy_from_cstr(const char*) noexcept;
-
-    /// @brief check if radome is empty (aka only whitespaces)
-    bool
-    radome_is_empty() const noexcept;
-    
-    /// Combined antenna, radome and serial number (model+dome+serial).
-    char __name[antenna_details::antenna_full_max_chars]; 
+  /// @brief Copy from a c-string
+  void
+  copy_from_cstr(const char*) noexcept;
+  
+  /// Combined antenna, radome and serial number (model+dome+serial).
+  char __name[antenna_details::antenna_full_max_chars]; 
 
 }; // Antenna
 
+/// @class SatelliteAntenna
+///
+/// @details A SatelliteAntenna is just a string, containing the model
+///          information, e.g. 'BEIDOU-2G' or 'GLONASS-K2', which can be at
+///          maximium 20 characters long.
+///
+/// @see     rcvr_ant
+///
+/// @example  test_antenna.cpp
+///       An example to show how to use the Antenna class.
+///
 class SatelliteAntenna
 {
 public:
-    explicit
-    SatelliteAntenna(const char* c) noexcept;
+  /// @brief Constructor to nothing
+  SatelliteAntenna() noexcept
+  {initialize();}
 
-    int
-    compare(const char*) const noexcept;
+  /// @brief Constructor from a c-string containing the antenna type
+  explicit
+  SatelliteAntenna(const char* c) noexcept;
 
-    void
-    set_from_cstr(const char* ) noexcept;
-    
-    /// @brief
-    const char*
-    __underlying_char__() const noexcept
-    { return __name; }
+  int
+  compare(const char*) const noexcept;
+
+  /// @brief Get the underlying c-string
+  const char*
+  __underlying_char__() const noexcept
+  { return __name; }
 
 private:
-    char __name[antenna_details::satellite_antenna_max_chars+1]; 
+
+  /// @brief set to no-string (aka '\0')
+  void
+  initialize() noexcept;
+
+  /// @brief Copy model from an input string
+  void
+  copy_from_cstr(const char* ) noexcept;
+  
+  ///< A c-string containng the antenna model
+  char __name[antenna_details::satellite_antenna_max_chars+1]; 
 }; // SatelliteAntenna
 
 } // ngpt
