@@ -10,9 +10,9 @@
 ///
 /// @date      Mon 11 Feb 2019 01:08:33 PM EET 
 ///
-/// @brief     
+/// @brief    Define the basics of GNSS observation types 
 /// 
-/// @see       
+/// @see       RINEX v3.x
 ///
 /// @copyright Copyright © 2019 Dionysos Satellite Observatory, <br>
 ///            National Technical University of Athens. <br>
@@ -21,34 +21,35 @@
 ///            Version 2, as published by Sam Hocevar. See http://www.wtfpl.net/
 ///            for more details.
 
-// forward declare
-namespace ngpt { class ObservationCode; }
-std::ostream& operator<<(std::ostream&, const ngpt::ObservationCode&);
-
 namespace ngpt
 {
 
 /// @enum observable_type
 /// @see ftp://ftp.igs.org/pub/data/format/rinex304.pdf
-enum class observable_type
+/// @warning Any change here should always be reflected in the functions
+///          * ngpt::char_to_observabletype
+///          * ngpt::observabletype_to_char
+enum class OBSERVABLE_TYPE
 : char
 {
-    pseudorange,
-    carrier_phase,
-    doppler,
-    signal_strength,
-    ionosphere_phase_delay,  ///< rnx304, sec. 5.12
-    receiver_channel_number, ///< rnx304, sec. 5.13
-    any                      ///< match anything
-}; // observable_type
+  pseudorange,
+  carrier_phase,
+  doppler,
+  signal_strength,
+  ionosphere_phase_delay,  ///< rnx304, sec. 5.12
+  receiver_channel_number, ///< rnx304, sec. 5.13
+  any                      ///< match anything
+}; // OBSERVABLE_TYPE
 
 /// TODO: what char should represent 'any'? 'any' is translated to '?' but
 /// should also work the other way around, or use e.g. ' '?
-observable_type
+/// @brief Translate a character to an OBSERVABLE_TYPE
+OBSERVABLE_TYPE
 char_to_observabletype(char);
 
+/// @brief Translate an OBSERVABLE_TYPE to a character
 char
-observabletype_to_char(observable_type);
+observabletype_to_char(OBSERVABLE_TYPE) noexcept;
 
 /// @class Attribute
 ///
@@ -58,16 +59,19 @@ observabletype_to_char(observable_type);
 class ObservationAttribute
 {
 public:
-    explicit
-    ObservationAttribute(char c='?')
-    noexcept
-    : __c(c)
-    {}
-    char
-    as_char() const noexcept
-    {return __c;}
+  /// @brief Default constructor; defaults to '?' aka any attribute
+  explicit
+  ObservationAttribute(char c='?') noexcept
+  : __c(c)
+  {}
+
+  /// @brief Cast to char  
+  char
+  as_char() const noexcept
+  {return __c;}
+
 private:
-    char __c; ///< tracking mode or channel
+  char __c; ///< tracking mode or channel
 }; // Attribute
 
 /// @class ObservationCode
@@ -76,31 +80,36 @@ private:
 class ObservationCode
 {
 public:
-    explicit
-    ObservationCode(observable_type otype=observable_type::any, int band=0,
-        ObservationAttribute att=ObservationAttribute())
-    noexcept
-    : __type(otype),
-      __band(band),
-      __attr(att)
-    {};
+  /// @brief Default constructor
+  explicit
+  ObservationCode(OBSERVABLE_TYPE otype=OBSERVABLE_TYPE::ANY, int band=0,
+      ObservationAttribute att=ObservationAttribute())
+  noexcept
+  : __type(otype),
+    __band(band),
+    __attr(att)
+  {};
 
-    explicit
-    ObservationCode(const char* str);
+  /// @brief Constructor from a c-string
+  explicit
+  ObservationCode(const char* str);
 
-    int&
-    band() noexcept
-    {return __band;}
+  /// @brief Get the instance's band (non-const)
+  int&
+  band() noexcept
+  {return __band;}
 
-    int
-    band() const noexcept
-    {return __band;}
+  /// @brief Get the instance's band (const)
+  int
+  band() const noexcept
+  {return __band;}
 
-    std::string
-    to_string() const;
+  /// @brief Cast to std::string
+  std::string
+  to_string() const;
 
 private:
-    observable_type      __type;
+    OBSERVABLE_TYPE      __type;
     int                  __band;
     ObservationAttribute __attr;
 }; // ObservationCode

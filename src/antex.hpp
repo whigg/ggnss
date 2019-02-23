@@ -16,7 +16,7 @@
 ///
 /// @date      Mon 11 Feb 2019 01:08:33 PM EET 
 ///
-/// @brief     
+/// @brief    Class and functions to handle ANTEX files and related information
 /// 
 /// @see       
 ///
@@ -35,77 +35,83 @@ namespace ngpt
 class Antex
 {
 public:
-    /// Let's not write this more than once.
-    typedef std::ifstream::pos_type pos_type;
+  /// Let's not write this more than once.
+  typedef std::ifstream::pos_type pos_type;
 
-    /// Valid atx versions.
-    enum class atx_version : char {
-        v14, ///< Actually, the only valid !
-        v13  ///< Used by EUREF but i can't find the dox
-    };
+  /// Valid atx versions.
+  enum class ATX_VERSION : char {
+    v14, ///< Actually, the only valid !
+    v13  ///< Used by EUREF but i can't find the dox
+  };
 
-    /// Constructor from filename.
-    explicit
-    Antex(const char*);
+  /// @brief Constructor from filename.
+  explicit
+  Antex(const char*);
 
-    /// Destructor (closing the file is not mandatory, but nevertheless)
-    ~Antex() noexcept 
-    { if (__istream.is_open()) __istream.close(); }
+  /// @brief Destructor (closing the file is not mandatory, but nevertheless)
+  ~Antex() noexcept 
+  { 
+    if (__istream.is_open())
+      __istream.close();
+  }
   
-    /// Copy not allowed !
-    Antex(const Antex&) = delete;
+  /// @brief Copy not allowed !
+  Antex(const Antex&) = delete;
 
-    /// Assignment not allowed !
-    Antex& operator=(const Antex&) = delete;
+  /// @brief Assignment not allowed !
+  Antex& operator=(const Antex&) = delete;
   
-    /// Move Constructor.
-    /// TODO In gcc 4.8 this only compiles if the noexcept specification is
-    ///      commented out
-    Antex(Antex&& a)
-        noexcept(std::is_nothrow_move_constructible<std::ifstream>::value) = default;
+  /// @brief Move Constructor.
+  Antex(Antex&& a)
+  noexcept(std::is_nothrow_move_constructible<std::ifstream>::value) = default;
 
-    /// Move assignment operator.
-    Antex& operator=(Antex&& a) 
-        noexcept(std::is_nothrow_move_assignable<std::ifstream>::value) = default;
+  /// @brief Move assignment operator.
+  Antex& operator=(Antex&& a) 
+  noexcept(std::is_nothrow_move_assignable<std::ifstream>::value) = default;
 
-    int
-    get_antenna_pco(const Antenna& ant_in, AntennaPcoList& pco_list,
-        bool must_match_serial=false);
-    int
-    get_antenna_pco(int prn, satellite_system ss, 
-        const ngpt::datetime<ngpt::seconds>& at, AntennaPcoList& pco_list);
+  int
+  get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
+                  bool must_match_serial=false);
+  int
+  get_antenna_pco(int prn, satellite_system ss, 
+                  const ngpt::datetime<ngpt::seconds>& at,
+                  AntennaPcoList& pco_list);
 
-    int
-    find_satellite_antenna(int, satellite_system, const ngpt::datetime<ngpt::seconds>& at, pos_type&);
+  int
+  find_satellite_antenna(int, satellite_system,
+                         const ngpt::datetime<ngpt::seconds>& at,
+                         pos_type&);
 #ifdef DEBUG
     int read_headerD() {return this->read_header();}
     int read_next_antenna_typeD(ngpt::Antenna& antenna){return this->read_next_antenna_type(antenna);}
     int skip_rest_of_antennaD(){return this->skip_rest_of_antenna();}
 #endif
 private:
-    /// Read the instance header, and assign (most of) the fields.
-    int
-    read_header();
 
-    /// Read next antenna (from the stream)
-    int
-    read_next_antenna_type(Antenna& antenna, char* c=nullptr);
+  /// @brief Read the instance header, and assign (most of) the fields.
+  int
+  read_header();
+
+  /// @brief Read next antenna (from the stream)
+  int
+  read_next_antenna_type(ReceiverAntenna& antenna, char* c=nullptr);
     
-    /// Skip antenna info
-    int
-    skip_rest_of_antenna();
+  /// @brief Skip (current) antenna info block
+  int
+  skip_rest_of_antenna();
     
-    /// Try to match a given antenna to a record in the atx file.
-    int
-    find_closest_antenna_match(const Antenna& ant_in,
-        Antenna& ant_out, pos_type& ant_pos);
+  /// @brief Try to match a given antenna to a record in the atx file.
+  int
+  find_closest_antenna_match(const ReceiverAntenna& ant_in,
+                             ReceiverAntenna& ant_out,
+                             pos_type& ant_pos);
 
 
-    std::string            __filename;    ///< The name of the antex file.
-    std::ifstream          __istream;     ///< The infput (file) stream.
-    satellite_system       __satsys;      ///< satellite system.
-    atx_version            __version;     ///< Atx version (1.4).
-    pos_type               __end_of_head; ///< Mark the 'END OF HEADER' field.
+  std::string            __filename;    ///< The name of the antex file.
+  std::ifstream          __istream;     ///< The infput (file) stream.
+  satellite_system       __satsys;      ///< satellite system.
+  atx_version            __version;     ///< Atx version (1.4).
+  pos_type               __end_of_head; ///< Mark the 'END OF HEADER' field.
 }; // Antex
 
 } // ngpt

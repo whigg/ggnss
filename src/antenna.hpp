@@ -1,18 +1,18 @@
 #ifndef __GNSS_ANTENNA_HPP__
 #define __GNSS_ANTENNA_HPP__
 
-/// @file    antenna.hpp
+/// @file     antenna.hpp
 ///
-/// @version   0.10
+/// @version  0.10
 ///
-/// @author    xanthos@mail.ntua.gr
-///        danast@mail.ntua.gr
+/// @author   xanthos@mail.ntua.gr
+///           danast@mail.ntua.gr
 ///
-/// @date    Mon 11 Feb 2019 01:08:33 PM EET 
+/// @date     Mon 11 Feb 2019 01:08:33 PM EET 
 ///
-/// @brief     GNSS Receiver and Satellite Antenna Classes.
+/// @brief    GNSS Receiver and Satellite Antenna Classes.
 /// 
-/// @see     http://www.epncb.oma.be/ftp/station/general/rcvr_ant.tab
+/// @see      http://www.epncb.oma.be/ftp/station/general/rcvr_ant.tab
 ///
 /// @copyright Copyright © 2019 Dionysos Satellite Observatory,
 ///        National Technical University of Athens.
@@ -67,7 +67,8 @@ namespace antenna_details
 ///          Antenna+Radome: Combine them with the radome code in columns 
 ///           17-20. Fill with spaces between the end of the antenna and column
 ///           17.
-///           Example: AOAD/M_T        SCIT
+///           Example: 'AOAD/M_T        SCIT'
+///                     01234567890123456789
 ///          (**note** that this description, copyied from rcvr_ant, is not
 ///          zero offset, thus each number should be -1).
 ///          To represent such an antenna, we are using a contiguous 40+1 char
@@ -170,8 +171,9 @@ public:
   explicit
   SatelliteAntenna(const char* c) noexcept;
 
-  int
-  compare(const char*) const noexcept;
+  /// @brief Compare satellite antenna types
+  bool
+  is_same(const char*) const noexcept;
 
   /// @brief Get the underlying c-string
   const char*
