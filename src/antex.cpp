@@ -48,7 +48,11 @@ constexpr std::size_t MAX_GRID_CHARS { 512 };
 
 // Forward declerationof non Antex:: functions;
 int
-__collect_pco__(std::ifstream&, ngpt::AntennaPcoList&);
+collect_pco(std::ifstream&, ngpt::AntennaPcoList&);
+int
+resolve_satellite_antenna_line(const char*, Satellite&);
+int
+check_time_interval(std::ifstream&, const ngpt::datetime<ngpt::seconds>&);
 
 /// @details Antex Constructor, using an antex filename. The constructor will
 ///          initialize (set) the _filename attribute and also (try to)
@@ -59,8 +63,8 @@ __collect_pco__(std::ifstream&, ngpt::AntennaPcoList&);
 Antex::Antex(const char* filename)
 : __filename   (filename),
   __istream    (filename, std::ios_base::in),
-  __satsys     (satellite_system::mixed),
-  __version    (Antex::atx_version::v14),
+  __satsys     (SATELLITE_SYSTEM::mixed),
+  __version    (Antex::ATX_VERSION::v14),
   __end_of_head(0)
 {
   if (read_header()) {
@@ -108,9 +112,9 @@ Antex::read_header()
   *(line+15) = '\0';
   float fvers = std::strtod(line,nullptr);
   if (std::abs(fvers - 1.4) < .001) {
-    __version = Antex::atx_version::v14;
+    __version = Antex::ATX_VERSION::v14;
   } else if (std::abs(fvers - 1.3) < .001) {
-    __version = Antex::atx_version::v13;
+    __version = Antex::ATX_VERSION::v13;
   } else {
     return 10;
   }
@@ -200,7 +204,7 @@ Antex::read_next_antenna_type(ReceiverAntenna& antenna, char* c)
     return 11;
   }
   // assign the antenna
-  antenna = Antenna(line);
+  antenna = ReceiverAntenna(line);
     
   // Copy the line if needed
   if (c) std::memcpy(c, line, sizeof(char)*60);
@@ -255,8 +259,8 @@ Antex::find_closest_antenna_match(const ReceiverAntenna& ant_in,
   // go to the top of the file, after the header
   __istream.seekg(__end_of_head, std::ios_base::beg);
 
-  Antenna  cur_ant,
-           best_match_ant;
+  ReceiverAntenna  cur_ant,
+                   best_match_ant;
   pos_type best_match_pos;
   int      stat1,
            stat2;
@@ -447,9 +451,9 @@ Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
   while ( !(stat1 = read_next_antenna_type(cur_ant, line)) ) {
     cur_sat.system() = SATELLITE_SYSTEM::mixed;
     ant_pos = __istream.tellg();
-    if (!__resolve_satellite_antenna_line__(line, cur_sat)) {
+    if (!resolve_satellite_antenna_line(line, cur_sat)) {
       if (cur_sat.prn() == prn && cur_sat.system() == ss) {
-        if (!__find_time_interval__(__istream, at)) {
+        if (!check_time_interval(__istream, at)) {
           return 0;
         }
       }
@@ -480,7 +484,7 @@ Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
 ///                 was found and the PCO values collected; anything other than
 ///                 0 denotes an error.
 int
-Antex::get_antenna_pco(int prn, satellite_system ss,
+Antex::get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
                        const ngpt::datetime<ngpt::seconds>& at,
                        AntennaPcoList& pco_list)
 {   
@@ -523,8 +527,8 @@ int
 Antex::get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
                        bool must_match_serial)
 {
-  pos_type ant_pos;
-  Antenna  ant_out;
+  pos_type         ant_pos;
+  ReceiverAntenna  ant_out;
 
   // clean any entries in pco_list
   pco_list.__vecref__().clear();
@@ -541,7 +545,7 @@ Antex::get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
   __istream.seekg(ant_pos, std::ios_base::beg);
 
   // we should now be ready to read "METH / BY / # / DATE"
-  int status = __collect_pco__(__istream, pco_list);
+  int status = collect_pco(__istream, pco_list);
 
   return status;
 }
@@ -597,7 +601,7 @@ collect_pco(std::ifstream& fin, ngpt::AntennaPcoList& pco_list)
     fin.getline(hline, MAX_HEADER_CHARS);
   } while (fin && std::strncmp(hline+60, "START OF FREQUENCY", 18));
 
-  ngpt::satellite_system ss;
+  ngpt::SATELLITE_SYSTEM ss;
   ngpt::ObservationCode  obsc;
   int bn;
   double dn, de, du;

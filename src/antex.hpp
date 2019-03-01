@@ -73,17 +73,17 @@ public:
   get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
                   bool must_match_serial=false);
   int
-  get_antenna_pco(int prn, satellite_system ss, 
+  get_antenna_pco(int prn, SATELLITE_SYSTEM ss, 
                   const ngpt::datetime<ngpt::seconds>& at,
                   AntennaPcoList& pco_list);
 
   int
-  find_satellite_antenna(int, satellite_system,
+  find_satellite_antenna(int, SATELLITE_SYSTEM,
                          const ngpt::datetime<ngpt::seconds>& at,
                          pos_type&);
 #ifdef DEBUG
     int read_headerD() {return this->read_header();}
-    int read_next_antenna_typeD(ngpt::Antenna& antenna){return this->read_next_antenna_type(antenna);}
+    int read_next_antenna_typeD(ngpt::ReceiverAntenna& antenna){return this->read_next_antenna_type(antenna);}
     int skip_rest_of_antennaD(){return this->skip_rest_of_antenna();}
 #endif
 private:
@@ -109,8 +109,8 @@ private:
 
   std::string            __filename;    ///< The name of the antex file.
   std::ifstream          __istream;     ///< The infput (file) stream.
-  satellite_system       __satsys;      ///< satellite system.
-  atx_version            __version;     ///< Atx version (1.4).
+  SATELLITE_SYSTEM       __satsys;      ///< satellite system.
+  ATX_VERSION            __version;     ///< Atx version (1.4).
   pos_type               __end_of_head; ///< Mark the 'END OF HEADER' field.
 }; // Antex
 

@@ -151,7 +151,7 @@ ngpt::satsys_to_char(ngpt::SATELLITE_SYSTEM s) noexcept
 
   switch (s)
   {
-    case satellite_system::gps :
+    case SATELLITE_SYSTEM::gps :
       return ngpt::satellite_system_traits<SATELLITE_SYSTEM::gps>
         ::identifier;
     case SATELLITE_SYSTEM::glonass :
@@ -176,6 +176,9 @@ ngpt::satsys_to_char(ngpt::SATELLITE_SYSTEM s) noexcept
       return ngpt::satellite_system_traits<SATELLITE_SYSTEM::mixed>
         ::identifier;
   }
+  // shoud never reach here!
+  return ngpt::satellite_system_traits<SATELLITE_SYSTEM::mixed>
+    ::identifier;
 }
 
 /// @details  Given a char, this function will return the corresponding

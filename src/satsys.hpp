@@ -76,7 +76,7 @@ char_to_satsys(char);
 /// Traits for Satellite Systems. A collection of satellite system - specific
 /// "static" information for each system in ngpt::SATELLITE_SYSTEM. To be
 /// specialized for each SATELLITE_SYSTEM
-template<satellite_system S>
+template<SATELLITE_SYSTEM S>
   struct satellite_system_traits
 {};
 

@@ -110,7 +110,7 @@ public:
 
   /// @brief Compare model and radome (diregard serials if any)
   bool
-  compare_model(const Antenna&) const noexcept;
+  compare_model(const ReceiverAntenna&) const noexcept;
 
   /// @brief Set antenna's serial number
   void
@@ -121,13 +121,7 @@ public:
   __underlying_char__() const noexcept
   { return __name; }
 
-#ifdef DEBUG
-  std::string
-  to_string() const noexcept;
-#endif
-
 private:
-
   /// @brief Initialize antenna 
   void
   initialize() noexcept;
@@ -147,7 +141,7 @@ private:
   /// Combined antenna, radome and serial number (model+dome+serial).
   char __name[antenna_details::antenna_full_max_chars]; 
 
-}; // Antenna
+}; // ReceiverAntenna
 
 /// @class SatelliteAntenna
 ///
@@ -175,6 +169,11 @@ public:
   bool
   is_same(const char*) const noexcept;
 
+  /// @brief Set model from a c-string (acts like a constructor)
+  inline void
+  set_from_cstr(const char* c) noexcept
+  { copy_from_cstr(c); }
+
   /// @brief Get the underlying c-string
   const char*
   __underlying_char__() const noexcept
@@ -195,5 +194,13 @@ private:
 }; // SatelliteAntenna
 
 } // ngpt
+
+/// @brief Overload '<<' operator for ReceiverAntenna
+std::ostream&
+operator<<(std::ostream&, ngpt::ReceiverAntenna);
+
+/// @brief Overload '<<' operator for SatelliteAntenna
+std::ostream&
+operator<<(std::ostream&, ngpt::SatelliteAntenna);
 
 #endif

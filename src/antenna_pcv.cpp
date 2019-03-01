@@ -8,11 +8,11 @@ void
 AntennaPco::dummy_print(std::ostream& os)
 const
 {
-    os << ngpt::satsys_identifier(__ssys)
-       << "["
-       << __otype.to_string()
-       << "] "
-       << __dn << ", " << __de << ", " << __du;
-    return;
+  os << ngpt::satsys_to_char(__ssys)
+    << "["
+    << __otype.to_string()
+    << "] "
+    << __dn << ", " << __de << ", " << __du;
+  return;
 }
 #endif

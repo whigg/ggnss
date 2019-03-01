@@ -57,6 +57,8 @@ ngpt::observabletype_to_char(OBSERVABLE_TYPE t) noexcept
     case OBSERVABLE_TYPE::receiver_channel_number : return 'X';
     case OBSERVABLE_TYPE::any : return '?';
   }
+  // should never reach this point
+  return '?';
 }
 
 /// Constructor for an ObservationCode. An observation code should include

@@ -82,7 +82,7 @@ class ObservationCode
 public:
   /// @brief Default constructor
   explicit
-  ObservationCode(OBSERVABLE_TYPE otype=OBSERVABLE_TYPE::ANY, int band=0,
+  ObservationCode(OBSERVABLE_TYPE otype=OBSERVABLE_TYPE::any, int band=0,
       ObservationAttribute att=ObservationAttribute())
   noexcept
   : __type(otype),

@@ -68,7 +68,7 @@ noexcept
   std::size_t ant_size = std::strlen(c);
 
   // max chars to copy would be:
-  constexpr std::size_t max_sx = antenna_model_max_chars
+  constexpr std::size_t max_sz = antenna_model_max_chars
                                 +antenna_radome_max_chars
                                 +1;
 
@@ -94,7 +94,7 @@ noexcept
 ///              i.e. a string containing antenna type and radome.
 ReceiverAntenna::ReceiverAntenna(const std::string& s)
 noexcept
-{this->copy_from_str(s.c_str());}
+{this->copy_from_cstr(s.c_str());}
 
 /// This function compares two Antenna instances and return true if and only
 /// if the Antenna is the same, i.e. they share the same model, radome and
@@ -146,13 +146,13 @@ bool
 ReceiverAntenna::has_serial()
 const noexcept
 {
-  constexpr auto idx = antenna_model_max_chars+1+antenna_radome_max_chars;
+  auto idx = antenna_model_max_chars+1+antenna_radome_max_chars;
   if (__name[idx]) {
     while (__name[idx]) {
       if (__name[idx] != ' ') {
         return true;
       }
-      ++i;
+      ++idx;
     }
   }
   return false;
@@ -184,8 +184,7 @@ void
 SatelliteAntenna::copy_from_cstr(const char* c)
 noexcept
 {
-  constexpr std::size_t ant_size (std::min(std::strlen(c),
-                                  satellite_antenna_max_chars));
+  std::size_t ant_size (std::min(std::strlen(c), satellite_antenna_max_chars));
   std::memcpy(__name, c, sizeof(char)*ant_size);
   __name[ant_size] = '\0';
 }
@@ -200,7 +199,7 @@ SatelliteAntenna::SatelliteAntenna(const char* c) noexcept
 /// @param[in] c  A c-string holding a Satellite Antenna
 /// @return       Returns true of the passed in c-string holds the same
 ///               antenna type as this instance; false otherwise
-int
+bool
 SatelliteAntenna::is_same(const char* c) const noexcept
 { return std::strncmp(__name, c, satellite_antenna_max_chars); }
 
@@ -210,4 +209,20 @@ SatelliteAntenna::initialize() noexcept
 {
   constexpr std::size_t sz = satellite_antenna_max_chars+1;
   std::memset(__name, '\0', sz);
+}
+
+/// Overload '<<' for ReceiverAntenna.
+std::ostream&
+operator<<(std::ostream& o, ngpt::ReceiverAntenna ant)
+{
+  o << ant.__underlying_char__();
+  return o;
+}
+
+/// Overload '<<' for SatelliteAntenna.
+std::ostream&
+operator<<(std::ostream& o, ngpt::SatelliteAntenna ant)
+{
+  o << ant.__underlying_char__();
+  return o;
 }
