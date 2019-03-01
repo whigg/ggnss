@@ -195,6 +195,9 @@ private:
 
 } // ngpt
 
+// TODO The following won't work !!!
+/*
+
 /// @brief Overload '<<' operator for ReceiverAntenna
 std::ostream&
 operator<<(std::ostream&, ngpt::ReceiverAntenna);
@@ -202,5 +205,7 @@ operator<<(std::ostream&, ngpt::ReceiverAntenna);
 /// @brief Overload '<<' operator for SatelliteAntenna
 std::ostream&
 operator<<(std::ostream&, ngpt::SatelliteAntenna);
+
+*/
 
 #endif

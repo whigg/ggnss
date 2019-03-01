@@ -81,11 +81,6 @@ public:
   find_satellite_antenna(int, SATELLITE_SYSTEM,
                          const ngpt::datetime<ngpt::seconds>& at,
                          pos_type&);
-#ifdef DEBUG
-    int read_headerD() {return this->read_header();}
-    int read_next_antenna_typeD(ngpt::ReceiverAntenna& antenna){return this->read_next_antenna_type(antenna);}
-    int skip_rest_of_antennaD(){return this->skip_rest_of_antenna();}
-#endif
 private:
 
   /// @brief Read the instance header, and assign (most of) the fields.

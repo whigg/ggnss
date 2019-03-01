@@ -2,6 +2,9 @@
 #include <cstring>
 #include <algorithm>
 #include "antenna.hpp"
+#ifdef DEBUG
+#include <iostream>
+#endif
 
 using ngpt::ReceiverAntenna;
 using ngpt::SatelliteAntenna;
@@ -72,8 +75,11 @@ noexcept
                                 +antenna_radome_max_chars
                                 +1;
 
-  std::memcpy(__name, c, sizeof(char)*std::min(ant_size, max_sz) );
-  if (radome_is_empty()) set_none_radome();
+  std::memcpy(__name, c, sizeof(char)*std::min(ant_size, max_sz));
+  if (ant_size<max_sz) {
+    std::memset(__name+ant_size, ' ', sizeof(char)*(max_sz-ant_size));
+    set_none_radome();
+  }
 }
 
 /// Constructor from antenna type. At maximum 20 chars are copied from the 
@@ -84,7 +90,13 @@ noexcept
 ///              i.e. a string containing antenna type and radome.
 ReceiverAntenna::ReceiverAntenna(const char* c)
 noexcept
-{this->copy_from_cstr(c);}
+{
+  constexpr std::size_t srl = antenna_model_max_chars
+                             +antenna_radome_max_chars
+                             +1;
+  this->copy_from_cstr(c);
+  __name[srl] = '\0';
+}
 
 /// Constructor from antenna type. At maximum 20 chars are copied from the 
 /// input string. If radome is empty (i.e. '    ') it will be set to 'NONE'.
@@ -94,7 +106,13 @@ noexcept
 ///              i.e. a string containing antenna type and radome.
 ReceiverAntenna::ReceiverAntenna(const std::string& s)
 noexcept
-{this->copy_from_cstr(s.c_str());}
+{
+  constexpr std::size_t srl = antenna_model_max_chars
+                             +antenna_radome_max_chars
+                             +1;
+  this->copy_from_cstr(s.c_str());
+  __name[srl] = '\0';
+}
 
 /// This function compares two Antenna instances and return true if and only
 /// if the Antenna is the same, i.e. they share the same model, radome and
@@ -212,10 +230,12 @@ SatelliteAntenna::initialize() noexcept
 }
 
 /// Overload '<<' for ReceiverAntenna.
+/*
 std::ostream&
 operator<<(std::ostream& o, ngpt::ReceiverAntenna ant)
 {
-  o << ant.__underlying_char__();
+  const char* str = ant.__underlying_char__();
+  o << str;
   return o;
 }
 
@@ -226,3 +246,4 @@ operator<<(std::ostream& o, ngpt::SatelliteAntenna ant)
   o << ant.__underlying_char__();
   return o;
 }
+*/
