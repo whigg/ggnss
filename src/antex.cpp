@@ -203,8 +203,15 @@ Antex::read_next_antenna_type(ReceiverAntenna& antenna, char* c)
           std::strncmp(line+60, "TYPE / SERIAL NO", 16)) {
     return 11;
   }
-  // assign the antenna
+  // assign the antenna (model+radome)
   antenna = ReceiverAntenna(line);
+  // if serial is not empty, assign serial
+  for (int i = 20; i < 40; i++) {
+    if ( *(line+i) != ' ' ) {
+      antenna.set_serial_nr(line+20);
+      break;
+    }
+  }
     
   // Copy the line if needed
   if (c) std::memcpy(c, line, sizeof(char)*60);

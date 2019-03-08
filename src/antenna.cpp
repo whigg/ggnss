@@ -116,7 +116,9 @@ noexcept
 
 /// This function compares two Antenna instances and return true if and only
 /// if the Antenna is the same, i.e. they share the same model, radome and
-/// serial number.
+/// serial number. That is, if any of the two antennas does not have a serial
+/// number, then we cannot know if they are the same antenna and the function
+/// returns false.
 ///
 /// @param[in] rhs  Antenna instance to check against
 /// @return         Returns true if the calling instance and the passed in
@@ -125,7 +127,11 @@ noexcept
 bool
 ReceiverAntenna::is_same(const ReceiverAntenna& rhs)
 const noexcept
-{ return !std::strncmp(__name, rhs.__name, antenna_full_max_chars); }
+{
+  if ( !has_serial() || !rhs.has_serial() )
+    return false;
+  return !std::strncmp(__name, rhs.__name, antenna_full_max_chars);
+}
 
 /// This function compares two Antenna instances and return true if and only
 /// if the Antenna is of the same model+radome, i.e. they share the same model
@@ -188,9 +194,10 @@ noexcept
   constexpr std::size_t start_idx = antenna_model_max_chars
                                    +antenna_radome_max_chars
                                    +1;
-  std::memset(__name+start_idx, '\0', antenna_serial_max_chars);
-  std::memcpy(__name+start_idx, c, sizeof(char) * 
+  std::memset(__name+start_idx, ' ', antenna_serial_max_chars+1);
+  std::memcpy(__name+start_idx, c, sizeof(char) *
               std::min(std::strlen(c), antenna_serial_max_chars));
+  __name[start_idx+antenna_serial_max_chars] = '\0';
 
   return;
 }

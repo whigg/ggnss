@@ -22,8 +22,10 @@ int main(int argc, char* argv[])
   AntennaPcoList pco;
   int j0;
 
+  std::cout<<"\nTryig to get PCO values for antenna \""<<an1.__underlying_char__()<<"\"";
+
   j0 = atx.get_antenna_pco(an1, pco);
-  std::cout<<"\nCollected PCO for \""<<an1.__underlying_char__()<<"\" status: "<<j0<<" (serial disregarded)";
+  std::cout<<"\n\tfunction status: "<<j0<<" (serial disregarded)";
   if (!j0) {
     for (const auto p : pco.__vecref__()) { 
       std::cout<<"\n\t";
@@ -31,7 +33,7 @@ int main(int argc, char* argv[])
     }
   }
   j0 = atx.get_antenna_pco(an1, pco, true); // must match serial
-  std::cout<<"\nCollected PCO for \""<<an1.__underlying_char__()<<"\" status: "<<j0<<" (must match serial)";
+  std::cout<<"\n\tfunction status: "<<j0<<" (must match serial)";
   if (!j0) {
     for (const auto p : pco.__vecref__()) { 
       std::cout<<"\n\t";
@@ -39,8 +41,9 @@ int main(int argc, char* argv[])
     }
   }
   
+  std::cout<<"\nTryig to get PCO values for antenna \""<<an2.__underlying_char__()<<"\"";
   j0 = atx.get_antenna_pco(an2, pco);
-  std::cout<<"\nCollected PCO for \""<<an2.__underlying_char__()<<"\" status: "<<j0<<" (serial disregarded)";
+  std::cout<<"\nfunction status: "<<j0<<" (serial disregarded)";
   if (!j0) {
     for (const auto p : pco.__vecref__()) { 
       std::cout<<"\n\t";
@@ -48,7 +51,7 @@ int main(int argc, char* argv[])
     }
   }
   j0 = atx.get_antenna_pco(an2, pco, true); // must match serial
-  std::cout<<"\nCollected PCO for \""<<an2.__underlying_char__()<<"\" status: "<<j0<<" (must match serial)";
+  std::cout<<"\nfunction status: "<<j0<<" (must match serial)";
   if (!j0) {
     for (const auto p : pco.__vecref__()) { 
       std::cout<<"\n\t";
@@ -56,6 +59,7 @@ int main(int argc, char* argv[])
     }
   }
 
+  /*
   Satellite sat (ngpt::SATELLITE_SYSTEM::galileo);
   sat.prn() = 12;
   auto dt = ngpt::datetime<seconds>(ngpt::year(2017),
@@ -79,7 +83,7 @@ int main(int argc, char* argv[])
       p.dummy_print(std::cout);
     }
   }
-
+*/
   std::cout << "\n";
   return 0;
 }
