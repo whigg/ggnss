@@ -54,12 +54,12 @@ public:
 
   /// @brief Default constructor
   explicit
-  Satellite(SATELLITE_SYSTEM s=SATELLITE_SYSTEM::mixed)
-  : __system(s),
-    __prn(-1),
-    __svn(-1),
-    __antenna()
-  {};
+  Satellite(SATELLITE_SYSTEM s=SATELLITE_SYSTEM::mixed) noexcept
+    : __system(s)
+    , __prn(-1)
+    , __svn(-1)
+    , __antenna()
+    {};
 
   /// @brief   Get the antenna type (non-const)
   /// @return  The satellite's antenna model as SatelliteAntenna

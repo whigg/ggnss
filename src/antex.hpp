@@ -51,8 +51,7 @@ public:
   /// @brief Destructor (closing the file is not mandatory, but nevertheless)
   ~Antex() noexcept 
   { 
-    if (__istream.is_open())
-      __istream.close();
+    if (__istream.is_open()) __istream.close();
   }
   
   /// @brief Copy not allowed !
@@ -71,36 +70,37 @@ public:
 
   int
   get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
-                  bool must_match_serial=false);
+                  bool must_match_serial=false) noexcept;
   int
   get_antenna_pco(int prn, SATELLITE_SYSTEM ss, 
                   const ngpt::datetime<ngpt::seconds>& at,
-                  AntennaPcoList& pco_list);
+                  AntennaPcoList& pco_list) noexcept;
 
-  int
-  find_satellite_antenna(int, SATELLITE_SYSTEM,
-                         const ngpt::datetime<ngpt::seconds>& at,
-                         pos_type&);
 private:
 
   /// @brief Read the instance header, and assign (most of) the fields.
   int
-  read_header();
+  read_header() noexcept;
 
   /// @brief Read next antenna (from the stream)
   int
-  read_next_antenna_type(ReceiverAntenna& antenna, char* c=nullptr);
+  read_next_antenna_type(ReceiverAntenna& antenna, char* c=nullptr) noexcept;
     
   /// @brief Skip (current) antenna info block
   int
-  skip_rest_of_antenna();
+  skip_rest_of_antenna() noexcept;
     
-  /// @brief Try to match a given antenna to a record in the atx file.
+  /// @brief Try to match a given receiver antenna to a record in the atx file.
   int
   find_closest_antenna_match(const ReceiverAntenna& ant_in,
                              ReceiverAntenna& ant_out,
-                             pos_type& ant_pos);
+                             pos_type& ant_pos) noexcept;
 
+  /// @brief Try to match a given satellite antenna, for a given epoch.
+  int
+  find_satellite_antenna(int, SATELLITE_SYSTEM,
+                         const ngpt::datetime<ngpt::seconds>& at,
+                         pos_type&) noexcept;
 
   std::string            __filename;    ///< The name of the antex file.
   std::ifstream          __istream;     ///< The infput (file) stream.

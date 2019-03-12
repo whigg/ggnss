@@ -84,11 +84,11 @@ public:
   explicit
   ObservationCode(OBSERVABLE_TYPE otype=OBSERVABLE_TYPE::any, int band=0,
       ObservationAttribute att=ObservationAttribute())
-  noexcept
-  : __type(otype),
-    __band(band),
-    __attr(att)
-  {};
+    noexcept
+    : __type(otype)
+    , __band(band)
+    , __attr(att)
+    {};
 
   /// @brief Constructor from a c-string
   explicit

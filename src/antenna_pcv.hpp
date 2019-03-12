@@ -49,13 +49,13 @@ public:
   /// @brief Constructor
   AntennaPco(const ObservationCode& obs, SATELLITE_SYSTEM sys, 
              double n=0e0, double e=0e0, double u=0e0)
-  noexcept
-  : __otype(obs),
-    __ssys(sys),
-    __dn(n),
-    __de(e),
-    __du(u)
-  {}
+    noexcept
+    : __otype(obs)
+    , __ssys(sys)
+    , __dn(n)
+    , __de(e)
+    , __du(u)
+    {}
 
 #ifdef DEBUG
   void
@@ -89,10 +89,8 @@ public:
   /// @brief Construct list using one AntennaPco
   /// @param[in] pco  An initial AntennaPco to add to the current list
   explicit
-  AntennaPcoList(const AntennaPco& pco)
-  noexcept
-  : __pco{pco}
-  {}
+  AntennaPcoList(const AntennaPco& pco) noexcept
+    : __pco{pco} {}
 
   std::vector<AntennaPco>&
   __vecref__() noexcept

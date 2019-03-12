@@ -20,8 +20,7 @@ constexpr char none_radome[] = "NONE";
 /// Set model+radome to " " (aka all whitespace characters). Serial is set to
 /// nothing, i.e. the first of twenty chars is set to '\0'
 void
-ReceiverAntenna::initialize()
-noexcept
+ReceiverAntenna::initialize() noexcept
 { 
   constexpr std::size_t mpr_sz = antenna_model_max_chars
                                  +1
@@ -32,8 +31,7 @@ noexcept
 
 /// Set radome type to none, aka 'NONE'.
 void
-ReceiverAntenna::set_none_radome()
-noexcept
+ReceiverAntenna::set_none_radome() noexcept
 {
   constexpr std::size_t start_idx = antenna_model_max_chars+1;
   std::memcpy(__name+start_idx, none_radome,
@@ -43,8 +41,7 @@ noexcept
 /// Check if the instance's radome type is empty, aka is "	  "
 /// @return true if radome is empty; false otherwise
 bool
-ReceiverAntenna::radome_is_empty()
-const noexcept
+ReceiverAntenna::radome_is_empty() const noexcept
 {
   constexpr std::size_t from = antenna_model_max_chars;
   constexpr std::size_t to   = antenna_model_max_chars+antenna_radome_max_chars;
@@ -64,8 +61,7 @@ const noexcept
 /// @note     At most 20 characters will be copied; any remaining characters 
 ///           will be ignored.
 void
-ReceiverAntenna::copy_from_cstr(const char* c)
-noexcept
+ReceiverAntenna::copy_from_cstr(const char* c) noexcept
 {
   // get the size of the input string.
   std::size_t ant_size = std::strlen(c);
@@ -88,8 +84,7 @@ noexcept
 ///
 /// @param[in] c A c-string representing an antenna as described in rcvr_ant,
 ///              i.e. a string containing antenna type and radome.
-ReceiverAntenna::ReceiverAntenna(const char* c)
-noexcept
+ReceiverAntenna::ReceiverAntenna(const char* c) noexcept
 {
   constexpr std::size_t srl = antenna_model_max_chars
                              +antenna_radome_max_chars
@@ -104,8 +99,7 @@ noexcept
 ///
 /// @param[in] c A c-string representing an antenna as described in rcvr_ant,
 ///              i.e. a string containing antenna type and radome.
-ReceiverAntenna::ReceiverAntenna(const std::string& s)
-noexcept
+ReceiverAntenna::ReceiverAntenna(const std::string& s) noexcept
 {
   constexpr std::size_t srl = antenna_model_max_chars
                              +antenna_radome_max_chars
@@ -125,8 +119,7 @@ noexcept
 ///                 instance are the same antenna, i.e. they share the same 
 ///                 model, radome and serial number.
 bool
-ReceiverAntenna::is_same(const ReceiverAntenna& rhs)
-const noexcept
+ReceiverAntenna::is_same(const ReceiverAntenna& rhs) const noexcept
 {
   if ( !has_serial() || !rhs.has_serial() )
     return false;
@@ -142,8 +135,7 @@ const noexcept
 ///                 instance are identical antennas, i.e. they share the same 
 ///                 model and radome.
 bool
-ReceiverAntenna::compare_model(const ReceiverAntenna& rhs)
-const noexcept
+ReceiverAntenna::compare_model(const ReceiverAntenna& rhs) const noexcept
 {
     constexpr auto sz = antenna_model_max_chars + 1 + antenna_radome_max_chars;
     return !std::strncmp(__name, rhs.__name, sz);
@@ -153,8 +145,7 @@ const noexcept
 /// @param[in] c The serial to check against
 /// @return		   True if the serials match exactly; false otherwise
 bool
-ReceiverAntenna::compare_serial(const char* c)
-const noexcept
+ReceiverAntenna::compare_serial(const char* c) const noexcept
 {
   constexpr auto idx = antenna_model_max_chars +1 +antenna_radome_max_chars;
   return !std::strncmp(__name+idx, c, antenna_serial_max_chars);
@@ -167,8 +158,7 @@ const noexcept
 /// @return true if the antenna has a serial number (can be just one character)
 ///			         or false otherwise.
 bool
-ReceiverAntenna::has_serial()
-const noexcept
+ReceiverAntenna::has_serial() const noexcept
 {
   auto idx = antenna_model_max_chars+1+antenna_radome_max_chars;
   if (__name[idx]) {
@@ -188,8 +178,7 @@ const noexcept
 ///              of the calling instance will be set to exactly c; i.e. any
 ///              leading or trailing whitespace characters will be copied.
 void
-ReceiverAntenna::set_serial_nr(const char* c)
-noexcept
+ReceiverAntenna::set_serial_nr(const char* c) noexcept
 {
   constexpr std::size_t start_idx = antenna_model_max_chars
                                    +antenna_radome_max_chars
@@ -206,8 +195,7 @@ noexcept
 /// at maximum 20 characters will be copied.
 /// @param[in] c A c-string describing a satellite antenna <= 20 chars long
 void
-SatelliteAntenna::copy_from_cstr(const char* c)
-noexcept
+SatelliteAntenna::copy_from_cstr(const char* c) noexcept
 {
   std::size_t ant_size (std::min(std::strlen(c), satellite_antenna_max_chars));
   std::memcpy(__name, c, sizeof(char)*ant_size);
