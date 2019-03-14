@@ -4,7 +4,9 @@
 #include <stdexcept>
 #include <cerrno>
 #include "navrnx.hpp"
+#include "ggdatetime/datetime_read.hpp"
 
+using ngpt::NavDataFrame;
 using ngpt::NavigationRnx;
 
 /// No header line can have more than 80 chars. However, there are cases when
@@ -14,8 +16,8 @@ constexpr int MAX_HEADER_CHARS { 85 };
 /// Max header lines.
 constexpr int MAX_HEADER_LINES { 1000 };
 
-/// Max record characters
-constexpr int MAX_RECORD_CHARS { };
+/// Max record characters (for a navigation data block)
+constexpr int MAX_RECORD_CHARS { 128 };
 
 /// Size of 'END OF HEADER' C-string.
 /// std::strlen is not 'constexr' so eoh_size can't be one either. Note however
@@ -26,6 +28,192 @@ constexpr int MAX_RECORD_CHARS { };
 #else
   constexpr std::size_t eoh_size { std::strlen("END OF HEADER") };
 #endif
+
+/// @brief Navigation data block lines per satellite system
+/// @param[in]  s SATELLITE_SYSTEM 
+/// @param[out] records_in_last_line Number of records that the last line holds.
+/// @return       The number of lines in a nav. RINEX v3.x data block for this
+///               satellite system. A negative return value, denotes an error.
+int
+__lines_per_satsys_v3__(ngpt::SATELLITE_SYSTEM s, int& records_in_last_line)
+noexcept
+{
+  using ngpt::SATELLITE_SYSTEM;
+
+  int lines_to_read = -10;
+  switch (s) {
+    case SATELLITE_SYSTEM::gps :
+    case SATELLITE_SYSTEM::qzss :
+    case SATELLITE_SYSTEM::beidou :
+      records_in_last_line = 2;
+      lines_to_read =  8;
+      break;
+    case SATELLITE_SYSTEM::galileo :
+    case SATELLITE_SYSTEM::irnss :
+      records_in_last_line = 1;
+      lines_to_read =  8;
+      break;
+    case SATELLITE_SYSTEM::glonass :
+    case SATELLITE_SYSTEM::sbas :
+      records_in_last_line = 4;
+      lines_to_read = 4;
+      break;
+    default:
+      break;
+  }
+  return lines_to_read;
+}
+
+/// @brief Replace all occurancies of 'D' or 'd' with 'E' in given c-string.
+/// @param[in] line A c-string; the replacement will happen 'in-place' so at
+///                 exit the string may be different.
+inline void
+__for2cpp__(char* line) noexcept
+{
+  char* c = line;
+  while (*c) {
+    if (*c == 'D' || *c == 'd') *c = 'E';
+    ++c;
+  }
+  return;
+}
+
+/// @details Resolve a string of N doubles, written with M digits (i.e. in the
+///          format N*D19.x as in RINEX 3.x) and asigne them to data[0,N).
+/// @param[in]  line  A c-string containing N doubles written with M digits
+/// @param[out] data  An array of (at least) N-1 elements; the resolved doubles
+///                   will be written in data[0]...data[N-1]
+/// @return  True if all numbers were resolved and assigned; false otherwise
+/// @warning The function will check 'errno'. Be sure that it is 0 at input. If
+///          an error occurs in the function call, it may be set to !=0, so be
+///          sure to clear it (aka 'errno') after exit.
+template<int N, int M>
+  inline bool
+  __char2double__(const char* line, double* data) noexcept
+{
+  char* end;
+  for (int i=0; i<N; i++) {
+    data[i] = std::strtod(line, &end);
+    if (line == end) return false;
+    line+=M;
+  }
+  return (errno) ? false : true;
+}
+
+/// @details Resolve a string of N doubles, written with M digits (i.e. in the
+///          format N*D19.x as in RINEX 3.x) and asigne them to data[0,N).
+/// @param[in]  line  A c-string containing N doubles written with M digits
+/// @param[out] data  An array of (at least) N-1 elements; the resolved doubles
+///                   will be written in data[0]...data[N-1]
+/// @return  True if all numbers were resolved and assigned; false otherwise
+/// @warning The function will check 'errno'. Be sure that it is 0 at input. If
+///          an error occurs in the function call, it may be set to !=0, so be
+///          sure to clear it (aka 'errno') after exit.
+/// @note exactly the same as the template version, only we don't know how many
+/// doubles we are resolving at compile time.
+template<int M>
+  inline bool
+  __char2double__(const char* line, double* data, int N) noexcept
+{
+  char* end;
+  for (int i=0; i<N; i++) {
+    data[i] = std::strtod(line, &end);
+    if (line == end) return false;
+    line+=M;
+  }
+  return (errno) ? false : true;
+}
+
+/// @details: Resolve a Nav. RINEX v3.x data block to a NavDataFrame. The
+///           function expect that the first line to be read is:
+///           "SV/ EPOCH / SV CLK". Depending on the satellite system (to be
+///           resolved from the first line) it will read the respective number
+///           of lines and resolve them.
+/// @param[in] inp Input file (nav RINEX v3) stream, placed before (aka first
+///                line to be read is:) "SV/ EPOCH / SV CLK"
+/// @return    Anything other than 0 denotes an error.
+int
+NavDataFrame::set_from_rnx3(std::ifstream& inp) noexcept
+{
+  char line[MAX_RECORD_CHARS];
+  char* str_end;
+
+  // Read the first line.
+  // ------------------------------------------------------------
+  if (!inp.getline(line, MAX_RECORD_CHARS)) {
+    return 1;
+  }
+  std::cout<<"\n -- resolving line: \""<<line<<"\"";
+  sys__ = ngpt::char_to_satsys(*line);
+  toc__ = ngpt::strptime_ymd_hms<ngpt::seconds>(line+3);
+  prn__ = std::strtol(line+1, &str_end, 10);
+  if (!prn__ || errno == ERANGE) {
+    errno = 0;
+    return 2;
+  }
+  // replace 'D' or 'd' with 'e' in remaining floats
+  __for2cpp__(line+23);
+  if (!__char2double__<3,19>(line+23, data__)) {
+    errno = 0;
+    return 3;
+  }
+
+  int last_line_recs = 0;
+  int ln = 0;
+  int lines_in_block = __lines_per_satsys_v3__(sys__, last_line_recs) - 1;
+  if (lines_in_block<0) {
+    return 4;
+  }
+  // read all but the last line (** all but galileo or beidou **)
+  if (sys__ != SATELLITE_SYSTEM::galileo && sys__ != SATELLITE_SYSTEM::beidou) {
+    for (ln=0; ln<lines_in_block-1; ln++) {
+      if (!inp.getline(line, MAX_RECORD_CHARS)) {
+        return 5;
+      }
+      // replace 'D' or 'd' with 'e'
+      __for2cpp__(line);
+      // read 4 doubles into data__
+      if (!__char2double__<4,19>(line+4, data__+3+ln*4)) {
+        errno = 0;
+        return 6;
+      }
+    }
+  } else { // galileo and beidou have an empty record in line #5
+    for (ln=0; ln<lines_in_block-1; ln++) {
+      if (!inp.getline(line, MAX_RECORD_CHARS)) {
+        return 5;
+      }
+      // replace 'D' or 'd' with 'e'
+      __for2cpp__(line);
+      // read 4 doubles into data__
+      if (ln!=4) {
+        if (!__char2double__<4,19>(line+4, data__+3+ln*4)) {
+          errno = 0;
+          return 6;
+        }
+      } else {
+        if (!__char2double__<3,19>(line+4, data__+3+ln*4)) {
+          errno = 0;
+          return 6;
+        }
+      }
+    }
+  }
+
+  // read last line
+  if (!inp.getline(line, MAX_RECORD_CHARS)) {
+    return 7;
+  }
+  // replace 'D' or 'd' with 'e'
+  __for2cpp__(line);
+  // read remaining last_line_recs doubles into data__
+  if (!__char2double__<19>(line+4, data__+3+ln*4, last_line_recs)) {
+    errno = 0;
+    return 8;
+  }
+
+  return 0;
+}
 
 /// @details NavigationRnx constructor, using a filename. The constructor will
 ///          initialize (set) the _filename attribute and also (try to)
@@ -94,71 +282,40 @@ NavigationRnx::read_header() noexcept
   return 0;
 }
 
+/// @details Read the next nav data block and assign it.
+/// param[in] nav A NavDataFrame where the read in RINEX block will be resolved
+///               to.
+/// @return   < 0 EOF encountered
+///           = 0 All ok; block resolved & nav assigned
+///           > 0 Error; block not resolved
 int
-NavigationRnx::read_nex_record() noexcept
+NavigationRnx::read_next_record(NavDataFrame& nav) noexcept
 {
-  char line[MAX_RECORD_CHARS];
-  char* str_end;
-
-  // Read the first line.
-  // ------------------------------------------------------------
-  ngpt::SATELLITE_SYSTEM ss;
-  int prn;
-  ngpt::datetime<ngpt::seconds> toc;
-  __istream.getline(line, MAX_RECORD_CHARS);
-  try {
-    ss  = ngpt::char_to_satsys(*line);
-    toc = ngpt::strptime_ymd_hms<ngpt::seconds>(line+3);
-  } catch (std::exception&) {
-    return 10;
+  int c;
+  if ( (c=__istream.peek()) != EOF ) {
+    return nav.set_from_rnx3(__istream);
   }
-  prn = std::strtol(line+1, &str_end, 10);
-  if (!prn || errno == ERANGE) {
-    errno = 0;
-    return 11;
+  if (__istream.eof()) {
+    __istream.clear();
+    return -1;
   }
-  // replace 'D' or 'd' with 'e' in remaining floats
-  str_end = line+23;
-  while (str_end) {
-    if (*str_end == 'D' || *str_end == 'd') *str_end = 'E';
-    ++str_end;
-  }
-  const char* c = line+23;
-  if (!(data[0] = std::strtod(c, &str_end)) || c == str_end) return 21;
-  c += 19;
-  if (!(data[1] = std::strtod(c, &str_end)) || c == str_end) return 22;
-  c += 19;
-  if (!(data[2] = std::strtod(c, &str_end)) || c == str_end) return 23;
-
+  return 50;
 }
 
-int
-NavigationRnx::skip_nav_record(ngpt::SATELLITE_SYSTEM s) noexcept
+SATELLITE_SYSTEM
+NavigationRnx::peak_satsys(int status)
 {
-  using ngpt::SATELLITE_SYSTEM;
-
-  int lines_to_skip = -10;
-  switch (s) {
-    case SATELLITE_SYSTEM::gps :
-    case SATELLITE_SYSTEM::galileo :
-    case SATELLITE_SYSTEM::qzss :
-    case SATELLITE_SYSTEM::beidou :
-    case SATELLITE_SYSTEM::irnss :
-      lines_to_skip =  8;
-      break;
-    case SATELLITE_SYSTEM::glonass :
-    case SATELLITE_SYSTEM::sbas :
-      lines_to_skip = 4;
-      break;
+  status = 0 ;
+  char s = __istream.peek();
+  if (s == EOF) {
+    status = -1;
+    return SATELLITE_SYSTEM::mixed;
   }
 
-  if (lines_to_skip < 0) return 10;
-
-  char line[MAX_RECORD_CHARS];
-  for (int i=0; i<lines_to_skip; i++) {
-    if (!__istream.getline(line, MAX_RECORD_CHARS))
-      return 15;
+  try {
+    return ngpt::char_to_satsys(s); // this may throw
+  } catch (std::exception&) {
+    status = 1;
+    return SATELLITE_SYSTEM::mixed;
   }
-
-  return 0;
 }

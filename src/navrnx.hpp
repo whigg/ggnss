@@ -2,19 +2,44 @@
 #define __NAVIGATION_RINEX_HPP__
 
 #include <fstream>
+#include "ggdatetime/dtcalendar.hpp"
 #include "satsys.hpp"
 
 namespace ngpt
 {
 
-/// GPS:        data__[0]  : Time of Clock in GPS time
+/// GPS:                   : Time of Clock in GPS time
 ///             data__[0]  : SV clock bias in seconds
 ///             data__[1]  : SV clock drift in m/sec
 ///             data__[2]  : SV clock drift rate in m/sec^2
-///             data__[x]  : IODE Issue of Data, Ephemeris
-///             data__[x]  : Crs(meters)
-///             data__[x]  : Deltan (radians/sec)
-///             data__[x]  : M0(radians)
+///             data__[3]  : IODE Issue of Data, Ephemeris
+///             data__[4]  : Crs (meters)
+///             data__[5]  : Deltan (radians/sec)
+///             data__[6]  : M0 (radians)                                ---- 1
+///             data__[7]  : Cuc (radians)
+///             data__[8]  : e Eccentricity
+///             data__[9]  : Cus (radians)
+///             data__[10] : sqrt(A) (sqrt(m))                           ---- 2
+///             data__[11] : Toe Time of Ephemeris (sec of GPS week)
+///             data__[12] : Cic (radians)
+///             data__[13] : OMEGA0 (radians)
+///             data__[14] : Cis (radians)                               ---- 3
+///             data__[15] : i0 (radians)
+///             data__[16] : Crc (meters)
+///             data__[17] : omega (radians)
+///             data__[18] : OMEGADOT (radians/sec)                      ---- 4
+///             data__[19] : IDOT (radians/sec)
+///             data__[20] : Codes on L2 channel
+///             data__[21] : GPS Week (to go with TOE)
+///             data__[22] : L2 P data flag                              ---- 5
+///             data__[23] : SV accuracy (meters)
+///             data__[24] : SV health (bits 17-22 w 3 sf 1)
+///             data__[25] : TGD (seconds)
+///             data__[26] : IODC Issue of Data, Clock                   ---- 6
+///             data__[27] : Transmissiontime of message
+///             data__[28] : Fit Interval in hours
+///             data__[29] : empty
+///             data__[30] : empty                                       ---- 7
 /// GALILEO:    data__[0]  : Time of Clock in GAL time
 ///             data__[0]  : SV clock bias in seconds, aka af0
 ///             data__[1]  : SV clock drift in m/sec, aka af1
@@ -69,8 +94,19 @@ namespace ngpt
 ///             data__[x]  : M0(radians)
 class NavDataFrame
 {
+public:
+  NavDataFrame() noexcept
+  {};
+
+  /// @brief Set from a RINEX 3.x navigation data block
+  int
+  set_from_rnx3(std::ifstream& inp) noexcept;
+
 private:
-  ngpt::datetime<ngpt::seconds> toc_; ///< 
+  SATELLITE_SYSTEM              sys__{};     ///< Satellite system
+  int                           prn__{};     ///< PRN as in Rinex 3x
+  ngpt::datetime<ngpt::seconds> toc__{};     ///< Time of clock
+  double                        data__[31]{};///< Data block
 };
 
 class NavigationRnx
@@ -102,6 +138,10 @@ public:
   /// @brief Move assignment operator.
   NavigationRnx& operator=(NavigationRnx&& a) 
   noexcept(std::is_nothrow_move_assignable<std::ifstream>::value) = default;
+
+  /// @brief Read, resolved and store next navigation data block
+  int
+  read_next_record(NavDataFrame&) noexcept;
 
 private:
   
