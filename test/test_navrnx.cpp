@@ -36,6 +36,25 @@ int main(int argc, char* argv[])
     }
   }
   std::cout<<"\nLast status was: "<<j;
+  
+  // rewind to end oh header; read only BDS and Galileo
+  nav.rewind();
+  j = 0;
+  while (!j) {
+    auto system = nav.peak_satsys(j);
+    if (!j) {
+      if (system == SATELLITE_SYSTEM::gps) {
+        j=nav.read_next_record(block);
+        std::cout<<"\n> IODE: "<<block.data(3)
+          <<", ToE: "<<block.data(11)
+          <<", GWk: "<<block.data(21)
+          <<", IODC:"<<block.data(26)
+          <<", ToM: "<<block.data(27) << "\n";
+      } else {
+        j=nav.ignore_next_block();
+      }
+    }
+  }
 
   std::cout<<"\n";
 }
