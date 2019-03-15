@@ -3,6 +3,7 @@
 
 using ngpt::NavigationRnx;
 using ngpt::NavDataFrame;
+using ngpt::SATELLITE_SYSTEM;
 
 int main(int argc, char* argv[])
 {
@@ -19,6 +20,21 @@ int main(int argc, char* argv[])
     block_nr++;
   }
   std::cout<<"\nRead "<<block_nr<<" data blocks";
+  std::cout<<"\nLast status was: "<<j;
+
+  // rewind to end oh header; read only BDS and Galileo
+  nav.rewind();
+  j = 0;
+  while (!j) {
+    auto system = nav.peak_satsys(j);
+    if (!j) {
+      if (system == SATELLITE_SYSTEM::galileo || system == SATELLITE_SYSTEM::beidou) {
+        j=nav.read_next_record(block);
+      } else {
+        j=nav.ignore_next_block();
+      }
+    }
+  }
   std::cout<<"\nLast status was: "<<j;
 
   std::cout<<"\n";

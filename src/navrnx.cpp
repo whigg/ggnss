@@ -302,8 +302,52 @@ NavigationRnx::read_next_record(NavDataFrame& nav) noexcept
   return 50;
 }
 
-SATELLITE_SYSTEM
-NavigationRnx::peak_satsys(int status)
+/// @details This function will read and ignore a satellite navigation block.
+///          It will "peek" and resolve the satellite system (aka it is expected
+///          that the next line to be read in the input stream is 
+///          "SV / EPOCH / SV CLK", and read the respective number of following
+///          lines.
+/// @return  An integer is returned, denoting:
+///           < 0 EOF encountered; satellite system not resolved
+///           = 0 All ok; satellite system resolved
+///           > 0 Error; satellite system not resolved
+int
+NavigationRnx::ignore_next_block() noexcept
+{
+  char s = __istream.peek();
+  if (s == EOF) {
+    __istream.clear();
+    return -1;
+  }
+
+  ngpt::SATELLITE_SYSTEM sys;
+  try {
+    sys = ngpt::char_to_satsys(s); // this may throw
+  } catch (std::exception&) {
+    return 1;
+  }
+
+  char line[MAX_RECORD_CHARS];
+  int last_line_recs = 0;
+  int lines_in_block = __lines_per_satsys_v3__(sys, last_line_recs);
+  // read and skip lines
+  for (int ln=0; ln<lines_in_block; ln++) {
+    if (!__istream.getline(line, MAX_RECORD_CHARS)) {
+      return 2;
+    }
+  }
+
+  return 0;
+}
+
+/// @details Peak following line (actually the first character) and resolve 
+///          the satellite system of the block that follows.
+/// @param[out] status The function status; this can hold:
+///           < 0 EOF encountered; satellite system not resolved
+///           = 0 All ok; satellite system resolved
+///           > 0 Error; satellite system not resolved
+ngpt::SATELLITE_SYSTEM
+NavigationRnx::peak_satsys(int& status) noexcept
 {
   status = 0 ;
   char s = __istream.peek();
@@ -318,4 +362,12 @@ NavigationRnx::peak_satsys(int status)
     status = 1;
     return SATELLITE_SYSTEM::mixed;
   }
+}
+
+/// @details Set the nav RINEX stream to end of header, ready to restart
+///          reading nav data blocks
+void
+NavigationRnx::rewind() noexcept
+{
+  __istream.seekg(__end_of_head);
 }

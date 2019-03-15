@@ -95,6 +95,8 @@ namespace ngpt
 class NavDataFrame
 {
 public:
+
+  /// @brief Null constructor
   NavDataFrame() noexcept
   {};
 
@@ -102,6 +104,21 @@ public:
   int
   set_from_rnx3(std::ifstream& inp) noexcept;
 
+  /// @brief Return GPS satellite health. This is an integer, following Table 19,
+  ///        Section 6.12 in RINEX 3.04
+  /// @return An integer; if 0, satellite is healthy, else check Table 19
+  int
+  gps_SatHealth() const noexcept
+  {return static_cast<int>(data__[24]);}
+  /// @brief Get the GPS week
+  int
+  gps_GpsWeek() const noexcept
+  {return static_cast<int>(data__[21]);}
+  /// @brief Get the ToE (aka time of ephemeris) in (sec of GPS week)
+  int
+  gps_ToE_sec() const noexcept
+  {return static_cast<int>(data__[11]);}
+  
 private:
   SATELLITE_SYSTEM              sys__{};     ///< Satellite system
   int                           prn__{};     ///< PRN as in Rinex 3x
@@ -142,6 +159,18 @@ public:
   /// @brief Read, resolved and store next navigation data block
   int
   read_next_record(NavDataFrame&) noexcept;
+  
+  /// @brief Check the first line of the following message to get the sat. sys
+  ngpt::SATELLITE_SYSTEM
+  peak_satsys(int&) noexcept;
+
+  /// @brief Read and skip the next navigation message
+  int
+  ignore_next_block() noexcept;
+
+  /// @brief Set the stream to end of header
+  void
+  rewind() noexcept;
 
 private:
   
