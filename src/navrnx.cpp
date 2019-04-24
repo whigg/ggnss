@@ -132,6 +132,8 @@ template<int M>
 /// @param[in] inp Input file (nav RINEX v3) stream, placed before (aka first
 ///                line to be read is:) "SV/ EPOCH / SV CLK"
 /// @return    Anything other than 0 denotes an error.
+/// @todo the line toc__ = ngpt::strptime_ymd_hms<ngpt::seconds>(line+3); may
+/// throw! what can i do about this?
 int
 NavDataFrame::set_from_rnx3(std::ifstream& inp) noexcept
 {
@@ -143,7 +145,6 @@ NavDataFrame::set_from_rnx3(std::ifstream& inp) noexcept
   if (!inp.getline(line, MAX_RECORD_CHARS)) {
     return 1;
   }
-  std::cout<<"\n -- resolving line: \""<<line<<"\"";
   sys__ = ngpt::char_to_satsys(*line);
   toc__ = ngpt::strptime_ymd_hms<ngpt::seconds>(line+3);
   prn__ = std::strtol(line+1, &str_end, 10);

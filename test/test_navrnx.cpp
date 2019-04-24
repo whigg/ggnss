@@ -1,5 +1,6 @@
 #include <iostream>
 #include "navrnx.hpp"
+#include "ggdatetime/datetime_write.hpp"
 
 using ngpt::NavigationRnx;
 using ngpt::NavDataFrame;
@@ -22,7 +23,8 @@ int main(int argc, char* argv[])
   std::cout<<"\nRead "<<block_nr<<" data blocks";
   std::cout<<"\nLast status was: "<<j;
 
-  // rewind to end oh header; read only BDS and Galileo
+  // rewind to end of header; read only BDS and Galileo
+  /*
   nav.rewind();
   j = 0;
   while (!j) {
@@ -36,8 +38,10 @@ int main(int argc, char* argv[])
     }
   }
   std::cout<<"\nLast status was: "<<j;
+  */
   
-  // rewind to end oh header; read only BDS and Galileo
+  // rewind to end of header; read only GPS
+  /*
   nav.rewind();
   j = 0;
   while (!j) {
@@ -55,6 +59,26 @@ int main(int argc, char* argv[])
       }
     }
   }
+  */
+  
+  // rewind to end of header; read only Glonass
+  nav.rewind();
+  j = 0;
+  while (!j) {
+    auto system = nav.peak_satsys(j);
+    if (!j) {
+      if (system == SATELLITE_SYSTEM::glonass) {
+        j=nav.read_next_record(block);
+        if (block.prn() == 3) {
+          std::cout<<"\nSatellite "<<block.prn()<<", Time: "<<ngpt::strftime_ymd_hms(block.toc());
+          std::cout<<"\n\tMessage frame time: "<<block.data(2)<<", freq. number: "<<block.data(10);
+        }
+      } else {
+        j=nav.ignore_next_block();
+      }
+    }
+  }
+  std::cout<<"\nLast status was: "<<j;
 
   std::cout<<"\n";
 }

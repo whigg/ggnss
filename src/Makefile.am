@@ -30,4 +30,6 @@ dist_libgnss_la_SOURCES = \
 	antenna.cpp \
         antenna_pcv.cpp \
 	antex.cpp \
-        navrnx.cpp
+        navrnx.cpp \
+	gpsnav.cpp \
+	glonav.cpp
