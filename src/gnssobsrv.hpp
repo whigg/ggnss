@@ -21,6 +21,7 @@
 ///            Version 2, as published by Sam Hocevar. See http://www.wtfpl.net/
 ///            for more details.
 
+#include <vector>
 #include "satsys.hpp"
 #include "gnssobs.hpp"
 
@@ -35,6 +36,19 @@ public:
   : __sys(sys),
     __code(code)
   {};
+
+  ngpt::SATELLITE_SYSTEM&
+  satsys() noexcept
+  {return __sys;}
+  
+  ngpt::SATELLITE_SYSTEM
+  satsys() const noexcept
+  {return __sys;}
+  
+  int
+  band() const noexcept
+  {return __code.band();}
+
 private:
   ngpt::SATELLITE_SYSTEM __sys;
   ngpt::ObservationCode  __code;
@@ -44,16 +58,23 @@ struct __ObsPart
 {
   GnssRawObservable __type;
   double            __coef;
+
   __ObsPart(GnssRawObservable o, double c=1e0) noexcept
   : __type(o),
     __coef(c)
   {};
+
   __ObsPart(ngpt::SATELLITE_SYSTEM sys, ngpt::ObservationCode code, 
     double c=1e0)
   noexcept
   : __type(GnssRawObservable{sys, code}),
     __coef(c)
   {};
+
+  /// nominal frequency multiplied by coefficient in MHz
+  double
+  frequency() const;
+
 }; // __ObsPart
 
 class GnssObservable
@@ -78,6 +99,14 @@ public:
     double coef=1e0)
   noexcept
   {__vec.emplace_back(sys, code, coef);}
+
+  double
+  frequency() const noexcept
+  {
+    double frequency = 0e0;
+    for (const auto& v : __vec) frequency += v.frequency();
+    return frequency;
+  }
 private:
   std::vector<__ObsPart> __vec;
 }; // class GnssObservable

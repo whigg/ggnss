@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "gnssobs.hpp"
+#include "gnssobsrv.hpp"
 
 using ngpt::ObservationCode;
 
@@ -10,7 +11,7 @@ int main(/*int argc, char* argv[]*/)
   // make sure they can all be resolved as ObservationCodes (for every SatSys)
   //
   
-  int EXIT STATUS = 0;
+  int EXIT_STATUS = 0;
   
   std::vector<std::string> gps_obs = { "C1C", "C1S", "C1L", "C1X", "C1P", 
     "S1C", "S1S", "S1L", "S1X", "S1P", "C1W", "L1W", "D1W", "S1W", "C1Y", 
@@ -29,6 +30,8 @@ int main(/*int argc, char* argv[]*/)
         std::cerr<<"\n[ERROR] Observation \""<<o<<"\" resolved to \""<<obs.to_string();
         EXIT_STATUS += 1;
       }
+      ngpt::GnssObservable gobs (ngpt::SATELLITE_SYSTEM::gps, obs);
+      std::cout<<"\ngps::"<<o<<" freuency: "<<gobs.frequency()<<" MHz";
     } catch (std::runtime_error& e) {
       std::cerr<<"\n[ERROR] Failed to resolve ObservationCode: \""<<o<<"\"";
       EXIT_STATUS += 1;

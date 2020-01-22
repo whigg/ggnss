@@ -94,6 +94,10 @@ template<>
   /// string is a seqeuence of (the **only**) valid attributes for
   /// each frequency band.
   static const std::map<int, std::string> valid_atributes;
+
+  static double
+  band2frequency(int band)
+  { return frequency_map.at(band); }
 };
 
 /// Specialize traits for Satellite System Glonass
@@ -126,6 +130,10 @@ template<>
   /// string is a seqeuence of (the **only**) valid attributes for
   /// each frequency band.
   static const std::map<int, std::string> valid_atributes;
+  
+  static double
+  band2frequency(int band)
+  { return frequency_map.at(band); }
 };
 
 /// Specialize traits for Satellite System SBAS
@@ -142,6 +150,10 @@ template<>
   /// string is a seqeuence of (the **only**) valid attributes for
   /// each frequency band.
   static const std::map<int, std::string> valid_atributes;
+  
+  static double
+  band2frequency(int band)
+  { return frequency_map.at(band); }
 };
 
 /// Specialize traits for Satellite System QZSS
@@ -158,6 +170,10 @@ template<>
   /// string is a seqeuence of (the **only**) valid attributes for
   /// each frequency band.
   static const std::map<int, std::string> valid_atributes;
+  
+  static double
+  band2frequency(int band)
+  { return frequency_map.at(band); }
 };
 
 /// Specialize traits for Satellite System BDS
@@ -174,6 +190,10 @@ template<>
   /// string is a seqeuence of (the **only**) valid attributes for
   /// each frequency band.
   static const std::map<int, std::string> valid_atributes;
+  
+  static double
+  band2frequency(int band)
+  { return frequency_map.at(band); }
 };
 
 /// Specialize traits for Satellite System IRNSS
@@ -190,6 +210,10 @@ template<>
   /// string is a seqeuence of (the **only**) valid attributes for
   /// each frequency band.
   static const std::map<int, std::string> valid_atributes;
+  
+  static double
+  band2frequency(int band)
+  { return frequency_map.at(band); }
 };
 
 /// Specialize traits for Satellite System MIXED

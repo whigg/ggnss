@@ -2,6 +2,7 @@ noinst_PROGRAMS = \
 		testObsCode.out \
 		testAntenna.out \
 		testAntex.out \
+                testBernSatellit.out \
                 testNavRnx.out
 
 MCXXFLAGS = \
@@ -26,6 +27,10 @@ testObsCode_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 testAntenna_out_SOURCES   = test_antenna.cpp
 testAntenna_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
 testAntenna_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
+
+testBernSatellit_out_SOURCES   = test_bern_SATELLIT.cpp
+testBernSatellit_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
+testBernSatellit_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 
 testAntex_out_SOURCES   = test_antex.cpp
 testAntex_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
