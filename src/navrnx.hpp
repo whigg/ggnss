@@ -59,7 +59,21 @@ public:
   /// @brief get SV coordinates (WGS84) from navigation block
   /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   int
-  gps_ecef(double t_insow, double& x, double& y, double& z) const noexcept;
+  gps_ecef(int gps_week, double t_insow, double& x, double& y, double& z)
+  const noexcept;
+  
+  template<typename T>
+    int
+    gps_ecef(const ngpt::datetime<T>& epoch, double& x, double& y, double& z)
+    const noexcept
+  {
+    ngpt::gps_week wk;
+    long isow;
+    wk = epoch.as_gps_wsow(isow);
+    int iwk = wk.as_underlying_type();
+    double sec = static_cast<double>(isow);
+    return this->gps_ecef(iwk, sec, x, y, z);
+  }
 
   double
   data(int idx) const noexcept { return data__[idx]; }

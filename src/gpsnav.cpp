@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cerrno>
+#include <cassert>
 #include "navrnx.hpp"
 
 using ngpt::NavDataFrame;
@@ -47,16 +48,26 @@ constexpr double OMEGAE_dot {7.2921151467e-5};
 /// PZ-90/GLO mean angular velocity of the Earth relative to vernal equinox
 constexpr double OMEGA_E {7.2921151467e-5}; // units: rad/sec
 
+/// Seconds in (GPS) week
+constexpr double SEC_IN_WEEK {604800e0};
+
 /// @brief get SV coordinates (WGS84) from navigation block
-/// see IS-GPS-200H, User Algorithm for Ephemeris Determination
+/// 
+/// Compute the ECEF coordinates of position for the phase center of the SVs' 
+/// antennas. The time parameter should be given in GPS Time
+///
+/// @see IS-GPS-200H, User Algorithm for Ephemeris Determination
 int
-NavDataFrame::gps_ecef(double t, double& x, double& y, double& z)
+NavDataFrame::gps_ecef(int gps_week, double t, double& x, double& y, double& z)
 const noexcept
 {
+#ifdef DEBUG
+  assert(gps_week<=(int)data__[21]+1 && gps_week>=(int)data__[21]-1);
+#endif
   constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
                                          //+ the Kepler equation for the 
                                          //+ eccentricity anomaly
-  double A  (data__[10]*data__[10]);       //  Semi-major axis
+  double A  (data__[10]*data__[10]);     //  Semi-major axis
   double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
   double tk (t-data__[11]);              //  Time from ephemeris reference epoch
   if (tk>302400e0) tk -= 604800e0;
