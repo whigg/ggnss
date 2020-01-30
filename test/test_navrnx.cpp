@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
   nav.rewind();
   j = 0;
   NavDataFrame navar[2]; // holds current and next data frame
+  int PRN=1;
   // read first two frames of GPS/PRN=3
   int frames_read=0;
   while (frames_read<2) {
@@ -81,7 +82,7 @@ int main(int argc, char* argv[])
         std::cerr<<"\n[ERROR] Failed to resolve Data Frame";
         return 10;
       } else {
-        if (block.prn()==3) {
+        if (block.prn()==PRN) {
           navar[frames_read]=block;
           ++frames_read;
         }
@@ -92,13 +93,15 @@ int main(int argc, char* argv[])
   }
   // set starting time
   ngpt::datetime<seconds> cur_dt = navar[0].toc();
+  int lp = ngpt::dat<seconds>(cur_dt);
   ngpt::datetime_interval<seconds> intrvl (ngpt::modified_julian_day(0), seconds(15*60L));
   double x,y,z;
   // compute x,y,z for one day, every 15 min
   while (cur_dt<=cur_dt.add<seconds>(ngpt::modified_julian_day(1))) {
     if (cur_dt>=navar[0].toc() && cur_dt<navar[1].toc()) {
       // compute ecef with navar[0]
-      block.gps_ecef(cur_dt, x, y, z);
+      auto eph (cur_dt); eph.remove_seconds(ngpt::seconds(lp));
+      block.gps_ecef(eph, x, y, z);
       /*
       std::cout<<"\n\t"<<ngpt::strftime_ymd_hms<seconds>(cur_dt)<<" "<<x<<", "<<y<<", "<<z
         <<" computed from data frame at "<<ngpt::strftime_ymd_hms<seconds>(navar[0].toc());
@@ -133,7 +136,7 @@ int main(int argc, char* argv[])
             std::cerr<<"\n[ERROR] Failed to resolve Data Frame";
             return 10;
           } else {
-            if (block.prn()==3) {
+            if (block.prn()==PRN) {
               navar[0]=block;
               next_frame_found = true;
               std::swap(navar[0], navar[1]);

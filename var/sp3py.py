@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 import datetime
+import math
 
 class Sp3:
   
@@ -10,7 +11,9 @@ class Sp3:
     with open(filename, "r") as fin:
       ## First line
       line  = fin.readline()
-      if line[0:2] != "#c":
+      if line[0:2] == "#c": version_c = 'c'
+      elif line[0:2] == "#d": version_c = 'd'
+      else:
         raise RuntimeError("[ERROR] Sp3 file has corrupt header line #1")
       year  = int(line[3:7])
       month = int(line[8:10])
@@ -30,18 +33,53 @@ class Sp3:
       ## Third line
       line  = fin.readline()
       num_sats   = int(line[4:6])
+      ## Get the time system
+      while line and line[0:2] != "%c": line = fin.readline()
+      if line[0:2] != "%c":
+        raise RuntimeError("[ERROR] Sp3 file has corrupt header")
+      else:
+        time_sys = line[9:12]
       ## that's all the info we want!
+    self.version    = version_c
     self.start_date = start_date
     self.num_epochs = num_epochs
     self.crd_sys    = crd_sys
     self.interval   = interval
     self.num_sats   = num_sats
+    self.time_sys   = time_sys
     self.filename   = filename
 
+  def count_header_lines(self):
+    if self.version == 'c': return 22
+    elif self.version == 'd':
+      num_lines = 0
+      with open(self.filename, "r") as fin:
+        ## read number of sats from line 3
+        for i in range(0,3): line = fin.readline()
+        num_lines += 3
+        num_sats = int(line[3:6])
+        ## each line holds 17 sats
+        for i in range(0,int(num_sats/17e0)):
+          line = fin.readline()
+          assert line[0] == '+'
+        num_lines += int(num_sats/17e0)
+        for i in range(0,int(num_sats/17e0)):
+          line = fin.readline()
+          assert line[0:1] == '++'
+        num_lines += int(num_sats/17e0)
+        while line and line[0] != '*':
+          line = fin.readline()
+          num_lines+=1
+      return num_lines
+    else:
+      raise RuntimeError("[ERROR] Sp3 file has corrupt header version")
+
   def read_satellite_records(self, sat_str):
+    print("## Ref System: {:}, Time System {:}".format(self.crd_sys, self.time_sys))
     ## open the file and got to start of records, that is line #23
+    header_lns = self.count_header_lines()
     with open(self.filename, "r") as fin:
-      for i in range(0,22): line = fin.readline()
+      for i in range(0,header_lns): line = fin.readline()
       line = fin.readline()
       while line[0:3] != "EOF":
         #print("resolving line: \"{:}\"".format(line))
@@ -100,5 +138,5 @@ class Sp3:
       raise RuntimeError("[ERROR] Failed to resolve position line")
 
 if __name__ == "__main__":
-  sp3 = Sp3("../data/COD20342.EPH_M")
-  sp3.read_satellite_records("G03")
+  sp3 = Sp3("../data/COD20820.EPH_M")
+  sp3.read_satellite_records("G01")

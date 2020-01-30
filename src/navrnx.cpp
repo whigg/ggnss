@@ -229,9 +229,10 @@ NavigationRnx::NavigationRnx(const char* filename)
   , __version    (0e0)
   , __end_of_head(0)
 {
-  if (read_header()) {
+  int j;
+  if ((j=read_header())) {
       if (__istream.is_open()) __istream.close();
-      throw std::runtime_error("[ERROR] Failed to read (nav) RINEX header");
+      throw std::runtime_error("[ERROR] Failed to read (nav) RINEX header; Error Code: "+std::to_string(j));
   }
 }
 
