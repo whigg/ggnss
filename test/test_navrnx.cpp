@@ -93,21 +93,22 @@ int main(int argc, char* argv[])
   }
   // set starting time
   ngpt::datetime<seconds> cur_dt = navar[0].toc();
-  int lp = ngpt::dat<seconds>(cur_dt);
+  // int lp = ngpt::dat<seconds>(cur_dt);
   ngpt::datetime_interval<seconds> intrvl (ngpt::modified_julian_day(0), seconds(15*60L));
   double x,y,z;
   // compute x,y,z for one day, every 15 min
   while (cur_dt<=cur_dt.add<seconds>(ngpt::modified_julian_day(1))) {
     if (cur_dt>=navar[0].toc() && cur_dt<navar[1].toc()) {
       // compute ecef with navar[0]
-      auto eph (cur_dt); eph.remove_seconds(ngpt::seconds(lp));
-      block.gps_ecef(eph, x, y, z);
+      // auto eph (cur_dt); eph.remove_seconds(ngpt::seconds(lp));
+      block.gps_ecef(cur_dt, x, y, z);
       /*
       std::cout<<"\n\t"<<ngpt::strftime_ymd_hms<seconds>(cur_dt)<<" "<<x<<", "<<y<<", "<<z
         <<" computed from data frame at "<<ngpt::strftime_ymd_hms<seconds>(navar[0].toc());
       */
       std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt)<<"\" ";
       std::printf("%+15.6f%+15.6f%+15.6f", x*1e-3, y*1e-3, z*1e-3);
+      //std::cout<<" (\""<<ngpt::strftime_ymd_hms<seconds>(eph)<<"\") ";
     } else {
       std::cerr<<"\n[ERROR] Unexpected date error!";
       std::cerr<<"\n        Caused at "<<ngpt::strftime_ymd_hms<seconds>(navar[0].toc())

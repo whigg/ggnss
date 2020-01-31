@@ -121,7 +121,7 @@ const noexcept
   double cosik   (std::cos(ik));
   
   x = xk_dot*cosOk - yk_dot*sinOk*cosik;
-  y = xk_dot*sinOk - yk_dot*cosOk*cosik;
+  y = xk_dot*sinOk + yk_dot*cosOk*cosik;
   z = yk_dot*std::sin(ik);
   return 0;
 }
