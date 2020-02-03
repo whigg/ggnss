@@ -62,6 +62,9 @@ public:
   gps_ecef(int gps_week, double t_insow, double& x, double& y, double& z)
   const noexcept;
   
+  int
+  gps_dtsv(double dt, double& dt_sv) const noexcept;
+  
   template<typename T>
     int
     gps_ecef(const ngpt::datetime<T>& epoch, double& x, double& y, double& z)
@@ -73,6 +76,16 @@ public:
     int iwk = wk.as_underlying_type();
     double sec = static_cast<double>(isow);
     return this->gps_ecef(iwk, sec, x, y, z);
+  }
+  
+  template<typename T>
+    int
+    gps_dtsv(const ngpt::datetime<T>& epoch, double& dtsv)
+    const noexcept
+  {
+    T dsec = ngpt::delta_sec<T, ngpt::seconds>(epoch, toc__);
+    double sec = static_cast<double>(dsec.as_underlying_type());
+    return this->gps_dtsv(sec, dtsv);
   }
 
   double

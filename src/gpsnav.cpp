@@ -51,10 +51,24 @@ constexpr double OMEGA_E {7.2921151467e-5}; // units: rad/sec
 /// Seconds in (GPS) week
 constexpr double SEC_IN_WEEK {604800e0};
 
+/// Constant F for SV Clock Correction in seconds/sqrt(meters)
+constexpr double F_CLOCK {-4.442807633e-10};
+
 /// @brief get SV coordinates (WGS84) from navigation block
 /// 
 /// Compute the ECEF coordinates of position for the phase center of the SVs' 
 /// antennas. The time parameter should be given in GPS Time
+/// @param[in] gps_week The GPS Week of the epoch to compute SV coordinates (in
+///            GPS Time Scale)
+/// @param[in] t Seconds of GPS Week of the epoch to compute SV coordinates (in
+///            GPS Time Scale)
+/// @param[out] x SV x-component antenna phase center position in the WGS84 ECEF 
+///             coordinate system
+/// @param[out] y SV y-component antenna phase center position in the WGS84 ECEF 
+///             coordinate system
+/// @param[out] z SV z-component antenna phase center position in the WGS84 ECEF 
+///             coordinate system
+/// @return Anything other than 0 denotes an error
 ///
 /// @see IS-GPS-200H, User Algorithm for Ephemeris Determination
 int
@@ -123,5 +137,59 @@ const noexcept
   x = xk_dot*cosOk - yk_dot*sinOk*cosik;
   y = xk_dot*sinOk + yk_dot*cosOk*cosik;
   z = yk_dot*std::sin(ik);
+  return 0;
+}
+
+/// @brief Compute SV Clock Correction
+///
+/// Determine the effective SV PRN code phase offset referenced to the phase 
+/// center of the antennas (∆tsv) with respect to GPS system time (t) at the 
+/// time of data transmission. This estimated correction accounts for the 
+/// deterministic SV clock error characteristics of bias, drift and aging, as 
+/// well as for the SV implementation characteristics of group delay bias and 
+/// mean differential group delay. Since these coefficients do not include 
+/// corrections for relativistic effects, the user's equipment must determine 
+/// the requisite relativistic correction.
+/// The user shall correct the time received from the SV with the equation 
+/// (in seconds):
+/// t = t_sv - Δt_sv
+///
+/// @param[in] t The difference t-t_oc in seconds
+/// @param[out] dt_sv SV Clock Correction in seconds
+/// @return Anything other than 0 denotes an error
+int
+NavDataFrame::gps_dtsv(double dt, double& dt_sv)
+const noexcept
+{
+  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
+                                         //+ the Kepler equation for the 
+                                         //+ eccentricity anomaly
+  if (dt>302400e0) dt -= 604800e0;
+  if (dt<302400e0) dt += 604800e0;
+
+  // Solve (iteratively) Kepler's equation for Ek
+  double A  (data__[10]*data__[10]);     //  Semi-major axis
+  double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
+  double n  (n0+data__[5]);              //  Corrected mean motion
+  double Mk (data__[6]+n*dt);            //  Mean anomaly
+  double E  (Mk);
+  double Ek (0e0);
+  double e  (data__[8]);
+  int i;
+  for (i=0; std::abs(E-Ek)>LIMIT && i<1001; i++) {
+    Ek = E;
+    E = std::sin(Ek)*e+Mk;
+  }
+  if (i>=1000) return 1;
+  Ek = E;
+
+  // Compute Δtr relativistic correction term (seconds)
+  const double Dtr = F_CLOCK * (data__[8]*data__[10]*std::sin(Ek));
+
+  // Compute correction
+  double Dtsv = data__[0] + data__[1]*dt + (data__[2]*dt)*dt;
+  Dtsv += Dtr;
+  dt_sv = Dtsv;
+
   return 0;
 }

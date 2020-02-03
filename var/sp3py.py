@@ -86,9 +86,9 @@ class Sp3:
         t = self.__resolve_epoch_header_line__(line)
         line, dct = self.__read_sat_pos_block__(fin)
         if sat_str in dct:
-            print("\"{:10s}\"{:+15.6f}{:+15.6f}{:+15.6f}".
+            print("\"{:10s}\"{:+15.6f}{:+15.6f}{:+15.6f}{:+15.6f}".
               format(t.strftime("%Y-%m-%d %H:%M:%S"),
-              dct[sat_str]['xkm'],dct[sat_str]['ykm'],dct[sat_str]['zkm']))
+              dct[sat_str]['xkm'],dct[sat_str]['ykm'],dct[sat_str]['zkm'],dct[sat_str]['cms']))
 
   def __resolve_epoch_header_line__(self, line):
     if line[0] != '*':
@@ -139,4 +139,4 @@ class Sp3:
 
 if __name__ == "__main__":
   sp3 = Sp3("../data/COD20820.EPH_M")
-  sp3.read_satellite_records("G01")
+  sp3.read_satellite_records("G02")

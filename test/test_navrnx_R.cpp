@@ -25,24 +25,8 @@ int main(int argc, char* argv[])
   std::cout<<"\nRead "<<block_nr<<" data blocks";
   std::cout<<"\nLast status was: "<<j;
 
-  // rewind to end of header; read only BDS and Galileo
-  /*
-  nav.rewind();
-  j = 0;
-  while (!j) {
-    auto system = nav.peak_satsys(j);
-    if (!j) {
-      if (system == SATELLITE_SYSTEM::galileo || system == SATELLITE_SYSTEM::beidou) {
-        j=nav.read_next_record(block);
-      } else {
-        j=nav.ignore_next_block();
-      }
-    }
-  }
-  std::cout<<"\nLast status was: "<<j;
-  */
-  
   // rewind to end of header; read only GPS
+  /*
   nav.rewind();
   j = 0;
   while (!j) {
@@ -102,10 +86,6 @@ int main(int argc, char* argv[])
       // compute ecef with navar[0]
       block.gps_ecef(cur_dt, x, y, z);
       block.gps_dtsv(cur_dt, dt);
-      /*
-      std::cout<<"\n\t"<<ngpt::strftime_ymd_hms<seconds>(cur_dt)<<" "<<x<<", "<<y<<", "<<z
-        <<" computed from data frame at "<<ngpt::strftime_ymd_hms<seconds>(navar[0].toc());
-      */
       std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt)<<"\" ";
       std::printf("%+15.6f%+15.6f%+15.6f %15.10f", x*1e-3, y*1e-3, z*1e-3, dt*1e6);
       //std::cout<<" (\""<<ngpt::strftime_ymd_hms<seconds>(eph)<<"\") ";
@@ -149,9 +129,9 @@ int main(int argc, char* argv[])
       } // end finding next frame
     }
   }
+  */
 
   // rewind to end of header; read only Glonass
-  /*
   nav.rewind();
   j = 0;
   while (!j) {
@@ -169,7 +149,6 @@ int main(int argc, char* argv[])
     }
   }
   std::cout<<"\nLast status was: "<<j;
-  */
 
   std::cout<<"\n";
 }

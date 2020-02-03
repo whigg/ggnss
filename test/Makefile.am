@@ -3,7 +3,8 @@ noinst_PROGRAMS = \
 		testAntenna.out \
 		testAntex.out \
                 testBernSatellit.out \
-                testNavRnx.out
+                testNavRnxG.out \
+                testNavRnxR.out
 
 MCXXFLAGS = \
 	-std=c++17 \
@@ -36,6 +37,10 @@ testAntex_out_SOURCES   = test_antex.cpp
 testAntex_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
 testAntex_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 
-testNavRnx_out_SOURCES   = test_navrnx.cpp
-testNavRnx_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
-testNavRnx_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
+testNavRnxG_out_SOURCES   = test_navrnx_G.cpp
+testNavRnxG_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
+testNavRnxG_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
+
+testNavRnxR_out_SOURCES   = test_navrnx_R.cpp
+testNavRnxR_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
+testNavRnxR_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
