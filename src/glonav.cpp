@@ -25,6 +25,17 @@ using ngpt::NavDataFrame;
 ///             data__[15] : spare
 ///             .................................................
 ///             data__[30] : spare
+///
+/// @warning The following is quoted from Rinex v.304
+///          GLONASS is basically running on UTC (or, more precisely, GLONASS 
+///          system time linked to UTC(SU)), i.e. the time tags are given in 
+///          UTC and not GPS time. It is not a continuous time, i.e. it 
+///          introduces the same leap seconds as UTC. The reported GLONASS time 
+///          has the same hours as UTC and not UTC+3 h as the original GLONASS 
+///          System Time! I.e. the time tags in the GLONASS navigation files 
+///          are given in UTC (i.e. not Moscow time or GPS time).
+
+
   
 // integration step for glonass in seconds (h parameter for Runge-Kutta4)
 constexpr double h_step = 60e0;
@@ -39,8 +50,35 @@ constexpr double PZ90_SEMI_MAJOR = 6378136e0;
 // Earth’s polar flattening
 constexpr double J2_GLONASS = 1082625.75e-9;
 
+/// @brief Compute time arguments for the integration of GLONASS ephemerids
+/// @param[in] jd0 Julian Date for 00:00 in MT
+/// @return Greenwich Mean Sidereal Time (GMST) for dj0
+/// @cite GLONASS-ICD, Appendix K, "Algorithm for calculation of the current 
+///       Julian date JD0, Gregorian date, and GMST"
+
+double
+__gmst__(double jd0) noexcept
+{
+  // Earth’s rotation angle in radians
+  constexpr double D2PI = 2e0*3.14159265358979323846e0;
+  double era =  D2PI*(0.7790572732640+1.00273781191135448*(jd0-2451545.0e0));
+  //  time from Epoch 2000, 1st January, 00:00 (UTC(SU)) till the current 
+  // Epoch in Julian centuries, containing 36525 ephemeris days each
+  double td = (jd0-2451545.0e0)/36525e0;
+  double gmst = era + 0.0000000703270726e0 + (0.0223603658710194e0 +
+                                (0.0000067465784654e0 -
+                                (0.0000000000021332e0 -
+                                (0.0000000001452308e0 -
+                                (0.0000000000001784e0 )
+                            *td) *td) *td) *td) *td;
+  return gmst;
+}
+
 /// @brief get SV coordinates from navigation block
-/// see GLONASS-ICD, Appendix J
+///
+/// @param[in] 
+/// @cite GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of 
+///       mass position and velocity vector components using ephemeris data"
 /// see https://gssc.esa.int/navipedia/index.php/GLONASS_Satellite_Coordinates_Computation
 int
 NavDataFrame::glo_ecef(double t, double& x, double& y, double& z)

@@ -62,6 +62,12 @@ public:
   gps_ecef(int gps_week, double t_insow, double& x, double& y, double& z)
   const noexcept;
   
+  /// @brief get SV coordinates (WGS84) from navigation block
+  /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
+  int
+  glo_ecef(int gps_week, double t_insow, double& x, double& y, double& z)
+  const noexcept;
+  
   int
   gps_dtsv(double dt, double& dt_sv) const noexcept;
   

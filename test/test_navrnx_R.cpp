@@ -133,6 +133,7 @@ int main(int argc, char* argv[])
 
   // rewind to end of header; read only Glonass
   nav.rewind();
+  int num_msg=0;
   j = 0;
   while (!j) {
     auto system = nav.peak_satsys(j);
@@ -140,8 +141,13 @@ int main(int argc, char* argv[])
       if (system == SATELLITE_SYSTEM::glonass) {
         j=nav.read_next_record(block);
         if (block.prn() == 3) {
-          std::cout<<"\nSatellite "<<block.prn()<<", Time: "<<ngpt::strftime_ymd_hms(block.toc());
-          std::cout<<"\n\tMessage frame time: "<<block.data(2)<<", freq. number: "<<block.data(10);
+          ++num_msg;
+          int day_in_week = static_cast<int>(block.data(2))/86400;
+          int sec_in_day = static_cast<int>(block.data(2))%86400;
+          std::cout<<"\n#"<<num_msg<<" Satellite "<<block.prn()<<", Time: "
+            <<ngpt::strftime_ymd_hms(block.toc())
+            <<"\n\tMessage frame time: "<<block.data(2)<<" (DOW: "<<day_in_week
+            <<", SEC: "<<sec_in_day<<"), freq. number: "<<block.data(10);
         }
       } else {
         j=nav.ignore_next_block();
