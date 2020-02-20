@@ -92,7 +92,7 @@ public:
     glo_ecef(ngpt::datetime<T> epoch, double& x, double& y, double& z)
     const noexcept
   {
-    epoch.remove_seconds(ngpt::seconds(10800L));
+    //epoch.remove_seconds(ngpt::seconds(10800L));
     T sec_of_day = epoch.sec();
     double sec = sec_of_day.to_fractional_seconds();
     return this->glo_ecef(sec, x, y, z);
@@ -110,6 +110,11 @@ public:
 
   double
   data(int idx) const noexcept { return data__[idx]; }
+
+  double&
+  data(int idx) noexcept { return data__[idx]; }
+  void
+  toc(ngpt::datetime<seconds> d) noexcept { toc__=d; }
 
   SATELLITE_SYSTEM
   sys() const noexcept { return sys__; }

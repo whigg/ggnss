@@ -2,6 +2,9 @@
 #include <stdexcept>
 #include <cerrno>
 #include "navrnx.hpp"
+#ifdef DEBUG
+#include "ggdatetime/datetime_write.hpp"
+#endif
 
 using ngpt::NavDataFrame;
 
@@ -25,6 +28,9 @@ using ngpt::NavDataFrame;
 ///             data__[15] : spare
 ///             .................................................
 ///             data__[30] : spare
+///
+/// @warning Note that all coordinate/velocity and acceleration components are
+///          already converted to meters
 ///
 /// @warning The following is quoted from Rinex v.304
 ///          GLONASS is basically running on UTC (or, more precisely, GLONASS 
@@ -56,10 +62,17 @@ constexpr double OMEGA_E = 7.2921151467e-5; // rad/s
 ngpt::datetime<ngpt::seconds>
 NavDataFrame::glo_te2date() const noexcept
 {
+  long sow;
+  auto wk = as_gps_wsow(toc__);
+
+  /*
   // sec in day
-  ngpt::seconds te_sec ((static_cast<long>(data__[2]))%86400L);
+  // ngpt::seconds te_sec ((static_cast<long>(data__[2]))%86400L);
+  ngpt::seconds te_sec (std::fmod(static_cast<long>(data__[2]), 86400L));
   ngpt::datetime<ngpt::seconds> te (toc__.mjd(), te_sec);
+  std::cout<<"\nTime of ephemeris: "<<ngpt::strftime_ymd_hms<seconds>(te);
   return te;
+  */
 }
 
 /// @brief Compute time arguments for the integration of GLONASS ephemerids
@@ -82,10 +95,10 @@ __gmst__(double jd0) noexcept
                                 (0.0000000001452308e0 -
                                 (0.0000000000001784e0 )
                             *td) *td) *td) *td) *td;
+  printf("\nGMST for jd0=%15.6f is %20.10f", jd0, gmst);
   return gmst;
 }
 
-//
 // This is the computation of the system J.1 in GLONASS ICD, par.
 // J.1 Precise algorithm for determination of position and velocity vector 
 // components for the SV’s center of mass for the given instant of MT
@@ -96,6 +109,7 @@ __gmst__(double jd0) noexcept
 // acc  = [j_x0s+j_x0m, j_y0s+j_y0m, j_z0s+j_z0m]
 // The function will use x and acc to compute the xdot vector, using the
 // system of (differential) equations described in J.1
+double __sqr__(double x) noexcept {return x*x;}
 void
 glo_state2deriv(const double *x, const double* acc, double *xdot)
 {
@@ -127,13 +141,15 @@ int
 NavDataFrame::glo_ecef(double t_sod, double& xs, double& ys, double& zs)
 const noexcept
 {
-  double tb = double((static_cast<long>(data__[2]))%86400L);
-  double t  = (t_sod-10800e0); // t to MT
+  long ltb = std::fmod(static_cast<long>(data__[2]), 86400L);
+  double tb = static_cast<double>(ltb);
+  double ti = t_sod; // (t_sod-10800e0); // t to MT
+  printf("\ntb=%20.5f ti=%20.5f", tb, ti);
   
   // the sidereal time in Greenwich at midnight GMT of a date at which the 
   // epoch te is specified. (Notice: GLONASS_time = UTC(SU) + 3 hours)
-  double jd_te = this->glo_te2date().as_mjd();
-  double gmst = __gmst__(jd_te+ngpt::mjd0_jd);
+  double mjd_te = static_cast<double>(glo_te2date().mjd().as_underlying_type());
+  double gmst = __gmst__(mjd_te+ngpt::mjd0_jd);
 
   // sidereal time at epoch te, to which are referred the initial conditions,
   // in Greenwich meridian
@@ -152,6 +168,7 @@ const noexcept
   x[3] = data__[4]*cosS - data__[8]*sinS - OMEGA_E*x[1];
   x[4] = data__[4]*sinS + data__[8]*cosS + OMEGA_E*x[0];
   x[5] = data__[12];
+  for (int i=0; i<6; i++) x[i]*=1e3;
 
   // The (X′′(te),Y′′(te),Z′′(te)) acceleration components broadcast in the 
   // navigation message are the projections of luni-solar accelerations to axes 
@@ -160,13 +177,15 @@ const noexcept
   acc[0] = data__[5]*cosS - data__[9]*sinS;
   acc[1] = data__[5]*sinS + data__[9]*cosS;
   acc[2] = data__[13];
+  for (int i=0; i<3; i++) acc[i]*=1e3;
   
   // Runge-Kutta 4th with step = h_step
   int it = 0;
   double k[6*4], xinp[6];
-  double h = (t>tb?-h_step:h_step);
-  while (std::abs(t-tb)>1e-9) {
-    // printf("\nRK4 iteration: %03d t=%20.5f tb=%20.5f",it,t,tb);
+  double h = (ti>tb?h_step:-h_step);
+  // while (std::abs(t-tb)>1e-9) {
+  for (double t=tb; std::abs(t-ti)>1e-9; t+=h) {
+    printf("\nRK4 iteration: %03d t=%20.5f ti=%20.5f",it,t,ti);
     if (it>1000) return 1;
     ++it;
     // compute k1 = F(t0, Y0)
@@ -185,11 +204,16 @@ const noexcept
   }
 
   // Transform back to PZ90
-  Sti = gmst + OMEGA_E*(t-10800e0);
+  /*
+  Sti = gmst + OMEGA_E*(ti-10800e0);
   cosS = std::cos(Sti);
   sinS = std::sin(Sti);
   xs = x[0]*cosS - x[1]*sinS;
   ys = -x[0]*sinS + x[1]*cosS;
+  zs = x[2];
+  */
+  xs = x[0];
+  ys = x[1];
   zs = x[2];
   return 0;
 }

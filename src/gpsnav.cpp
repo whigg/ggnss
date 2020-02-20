@@ -63,11 +63,11 @@ constexpr double F_CLOCK {-4.442807633e-10};
 /// @param[in] t Seconds of GPS Week of the epoch to compute SV coordinates (in
 ///            GPS Time Scale)
 /// @param[out] x SV x-component antenna phase center position in the WGS84 ECEF 
-///             coordinate system
+///             coordinate system in meters
 /// @param[out] y SV y-component antenna phase center position in the WGS84 ECEF 
-///             coordinate system
+///             coordinate system in meters
 /// @param[out] z SV z-component antenna phase center position in the WGS84 ECEF 
-///             coordinate system
+///             coordinate system in meters
 /// @return Anything other than 0 denotes an error
 ///
 /// @see IS-GPS-200H, User Algorithm for Ephemeris Determination

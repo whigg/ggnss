@@ -213,6 +213,12 @@ NavDataFrame::set_from_rnx3(std::ifstream& inp) noexcept
     return 8;
   }
 
+  // If we read a GLONASS navigation frame, convert SV state vector to meters
+  // (originaly in km)
+  if (sys__ == SATELLITE_SYSTE::glonass) {
+    for (int i : {3,4,5,7,8,9,11,12,13}) data__[i]*=1e3;
+  }
+
   return 0;
 }
 
