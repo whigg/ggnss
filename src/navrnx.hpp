@@ -65,7 +65,7 @@ public:
   /// @brief get SV coordinates (WGS84) from navigation block
   /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   ngpt::datetime<seconds>
-  glo_te2date() const noexcept;
+  glo_tb2date() const noexcept;
 
   int
   glo_ecef(double t_insod, double& x, double& y, double& z)

@@ -60,19 +60,20 @@ constexpr double OMEGA_E = 7.2921151467e-5; // rad/s
 
 /// Time of ephemeris as datetime<seconds> instance in UTC
 ngpt::datetime<ngpt::seconds>
-NavDataFrame::glo_te2date() const noexcept
+NavDataFrame::glo_tb2date(bool to_MT) const noexcept
 {
+  auto toc = this->toc__;
+  if (to_MT) toc.add_seconds(ngpt::seconds(10800L));
   long sow;
-  auto wk = as_gps_wsow(toc__);
+  toc.as_gps_wsow(sow);
+  int  dow_toc = sow / 86400L;        // day of week of toc
 
-  /*
-  // sec in day
-  // ngpt::seconds te_sec ((static_cast<long>(data__[2]))%86400L);
-  ngpt::seconds te_sec (std::fmod(static_cast<long>(data__[2]), 86400L));
-  ngpt::datetime<ngpt::seconds> te (toc__.mjd(), te_sec);
-  std::cout<<"\nTime of ephemeris: "<<ngpt::strftime_ymd_hms<seconds>(te);
-  return te;
-  */
+  long sow_tb = ((to_MT)?(static_cast<long>(data__[2])):(static_cast<long>(data__[2])+10800L));
+  int  dow_tob = sow_tb / 86400;
+  long sod_tb = sow_tb % 86400L;
+  int  offset = dow_toc - dow_tob;
+  return ngpt::datetime<ngpt::seconds>(toc__.mjd()-ngpt::modified_julian_day(offset), 
+    ngpt::seconds(sod_tb));
 }
 
 /// @brief Compute time arguments for the integration of GLONASS ephemerids
@@ -141,6 +142,27 @@ int
 NavDataFrame::glo_ecef(double t_sod, double& xs, double& ys, double& zs)
 const noexcept
 {
+  // tb as datetime instance in MT
+  ngpt::datetime<seconds> tb = glo_tb2date();
+  // tb as sec of day
+  double tb_sec = static_cast<double>(tb.sec());
+  // compute GST of tb
+  double gmstb = __gmst__(tb.mjd().as_underlying_type()+ngpt::mjd0_jd);
+  gmstb += OMEGA_E*(tb_sec-10800e0);
+  // state vector of SV
+  double x[6];
+  // Initial conditions for ODE
+  double cosS {std::cos(gmstb)};
+  double sinS {std::sin(gmstb)};
+  x[0] = data__[3]*cosS - data__[7]*sinS;
+  x[1] = data__[3]*sinS + data__[7]*cosS;
+  x[2] = data__[11];
+  x[3] = data__[4]*cosS - data__[8]*sinS - OMEGA_E*x[1];
+  x[4] = data__[4]*sinS + data__[8]*cosS + OMEGA_E*x[0];
+  x[5] = data__[12];
+
+
+  /*
   long ltb = std::fmod(static_cast<long>(data__[2]), 86400L);
   double tb = static_cast<double>(ltb);
   double ti = t_sod; // (t_sod-10800e0); // t to MT
@@ -148,14 +170,14 @@ const noexcept
   
   // the sidereal time in Greenwich at midnight GMT of a date at which the 
   // epoch te is specified. (Notice: GLONASS_time = UTC(SU) + 3 hours)
-  double mjd_te = static_cast<double>(glo_te2date().mjd().as_underlying_type());
+  double mjd_te = static_cast<double>(glo_tb2date().mjd().as_underlying_type());
   double gmst = __gmst__(mjd_te+ngpt::mjd0_jd);
 
   // sidereal time at epoch te, to which are referred the initial conditions,
   // in Greenwich meridian
   double Sti = gmst + OMEGA_E*(tb-10800e0);
 
-  double x[6], /*xdot[6],*/ acc[3];
+  double x[6], acc[3];
   // the initial conditions (x(te),y(te),z(te),vx(te),vy(te),vz(te)), as 
   // broadcast in the GLONASS navigation message, are in the ECEF Greenwich 
   // coordinate system PZ-90. Therefore, and previous to orbit integration, 
@@ -204,16 +226,15 @@ const noexcept
   }
 
   // Transform back to PZ90
-  /*
   Sti = gmst + OMEGA_E*(ti-10800e0);
   cosS = std::cos(Sti);
   sinS = std::sin(Sti);
   xs = x[0]*cosS - x[1]*sinS;
   ys = -x[0]*sinS + x[1]*cosS;
   zs = x[2];
-  */
   xs = x[0];
   ys = x[1];
   zs = x[2];
   return 0;
+  */
 }

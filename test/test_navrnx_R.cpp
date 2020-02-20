@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
   double x,y,z;
   // compute x,y,z for one day, every 15 min
   while (cur_dt<=cur_dt.add<seconds>(ngpt::modified_julian_day(1))) {
-    auto toe = navar.glo_te2date();
+    auto toe = navar.glo_tb2date();
     seconds sec_diff (std::abs(ngpt::delta_sec(toe, cur_dt).as_underlying_type()));
     if (sec_diff<=seconds(15*60L)) {
       // compute ecef with navar[0]
