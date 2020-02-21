@@ -46,17 +46,17 @@ using ngpt::NavDataFrame;
 constexpr double h_step = 60e0;
 
 // (m3/s2) geocentric gravitational constant (mass of the Earth included)
-constexpr double GM_GLONASS = 398600441.8e06;
+constexpr double GM_GLO = 398600441.8e06;
 
 // semi-major axis of the PZ-90 Earth’s ellipsoid
-constexpr double PZ90_SEMI_MAJOR = 6378136e0;
+constexpr double AE_GLO = 6378136e0;
 
 // second degree coefficient of normal potential, which describes the 
 // Earth’s polar flattening
-constexpr double J2_GLONASS = 1082625.75e-9;
+constexpr double J2_GLO = 1082625.75e-9;
 
 // mean angular velocity of the Earth relative to vernal equinox
-constexpr double OMEGA_E = 7.2921151467e-5; // rad/s
+constexpr double OMEGA_GLO = 7.2921151467e-5; // rad/s
 
 /// Time of ephemeris as datetime<seconds> instance in UTC
 ngpt::datetime<ngpt::seconds>
@@ -110,24 +110,51 @@ __gmst__(double jd0) noexcept
 // acc  = [j_x0s+j_x0m, j_y0s+j_y0m, j_z0s+j_z0m]
 // The function will use x and acc to compute the xdot vector, using the
 // system of (differential) equations described in J.1
-double __sqr__(double x) noexcept {return x*x;}
 void
-glo_state2deriv(const double *x, const double* acc, double *xdot)
+glo_state_deriv(const double *x, const double* acc, double *xdot)
 {
-  const double r   = std::sqrt(x[0]*x[0] + x[1]*x[1] + x[2]*x[2]);
-  const double rho = PZ90_SEMI_MAJOR / r;
-  const double GM  = GM_GLONASS / (r*r);
-  const double xsv = x[0] / r;
-  const double ysv = x[1] / r;
-  const double zsv = x[2] / r;
-  const double fac = (3e0/2e0)*J2_GLONASS*GM*rho;
+  double x_km = x[0]*1e-3;
+  double y_km = x[1]*1e-3;
+  double z_km = x[2]*1e-3;
+  const double r2 = (x_km*x_km+y_km*y_km+z_km*z_km)*1e6;
+  const double r = std::sqrt(x_km*x_km+y_km*y_km+z_km*z_km)*1e3;
+  const double z2r25  = 5e0*x[2]*x[2]/r2;        // 5*z2/r2
+  const double gmr3   = GM_GLO/r2/r;             // GM/r3
+  const double ja2r2  = J2_GLO*AE_GLO*AE_GLO/r2; // J2*a2/r2
+  const double omega2 = OMEGA_GLO*OMEGA_GLO;     // ω2
+  // TODO simplify these shit below
+  xdot[0] = x[3];
+  xdot[1] = x[4];
+  xdot[2] = x[5];
+  xdot[3] = (-gmr3 - 1.5e0*gmr3*ja2r2*(1e0-z2r25) + omega2)*x[0] + 
+            2e0*OMEGA_GLO*x[4] + acc[0];
+  xdot[4] = (-gmr3 - 1.5e0*gmr3*ja2r2*(1e0-z2r25) + omega2)*x[1] + 
+            2e0*OMEGA_GLO*x[3] + acc[1];
+  xdot[5] = (-gmr3 - 1.5e0*gmr3*ja2r2*(3e0-z2r25))*x[2] + acc[2];
+
+  
+  /*
+  double x0_km = x[0]*1e-3;
+  double y0_km = x[1]*1e-3;
+  double z0_km = x[2]*1e-3;
+  const double r02 = (x0_km*x0_km+y0_km*y0_km+z0_km*z0_km)*1e6;
+  const double r0 = std::sqrt(x0_km*x0_km+y0_km*y0_km+z0_km*z0_km)*1e3;
+  const double rho2   = (AE_GLO*AE_GLO) / r02;
+  const double x0hat  = x[0] / r0;
+  const double y0hat  = x[1] / r0;
+  const double z0hat  = x[2] / r0;
+  const double GM_hat = GM_GLO / r02;
+  const double J2rho2 = J2_GLO*;rho2                 // J2*ρ2
+  const double a_fac  = 1.5e0*J2rho2;                // 1.5*J2*rho2
+  const double b_fac  = (15e0/2)*J2rho2*z0hat*z0hat; // (15/2)J2*rho2*z0hat2
 
   xdot[0] = x[3];
   xdot[1] = x[4];
   xdot[2] = x[5];
-  xdot[3] = -GM*xsv - fac*xsv*(1e0-5e0*zsv*zsv) + acc[0];
-  xdot[4] = -GM*ysv - fac*ysv*(1e0-5e0*zsv*zsv) + acc[1];
-  xdot[5] = -GM*zsv - fac*zsv*(3e0-5e0*zsv*zsv) + acc[2];
+  xdot[3] = (1e0 - a_fac + b_fac)*(GM_hat*x0hat) + acc[0];
+  xdot[4] = (1e0 - a_fac + b_fac)*(GM_hat*y0hat) + acc[1];
+  xdot[3] = (1e0 - a_fac + b_fac - 3e0*J2rho2)*(GM_hat*z0hat) + acc[2];
+  */
 
   return;
 }
@@ -142,15 +169,65 @@ int
 NavDataFrame::glo_ecef(double t_sod, double& xs, double& ys, double& zs)
 const noexcept
 {
+  double x[6], acc[3];
+  double k1[6], k2[6], k3[6], k4[6];
+  double ytmp[6], yti[6];
   // tb as datetime instance in MT
-  ngpt::datetime<seconds> tb = glo_tb2date();
+  ngpt::datetime<seconds> tb = glo_tb2date(false);
+  // tb as sec of day
+  double tb_sec = tb.sec().to_fractional_seconds();
+  // Initial conditions for ODE aka x = [x0, y0, z0, Vx0, Vy0, Vz0]
+  x[0] = data__[3];
+  x[1] = data__[7];
+  x[2] = data__[11];
+  x[3] = data__[4];
+  x[4] = data__[8];
+  x[5] = data__[12];
+  // projections of accelerations
+  acc[0] = data__[5];
+  acc[1] = data__[9];
+  acc[2] = data__[13];
+
+  std::copy(x, x+6, yti);
+  double h = t_sod>tb_sec?h_step:-h_step;
+  double ti= tb_sec;
+  double t_lim = t_sod-std::round((t_sod-tb_sec)/86400)*86400;
+  // Perform Runge-Kutta 4th 
+  while (std::abs(ti-t_lim)>1e-9) {
+    // compute k1
+    glo_state_deriv(yti, acc, k1);
+    // compute k2
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k1[i];
+    glo_state_deriv(ytmp, acc, k2);
+    // compute k3
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k2[i];
+    glo_state_deriv(ytmp, acc, k3);
+    // compute k4
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + h_step*k3[i];
+    glo_state_deriv(ytmp, acc, k4);
+    // update y
+    for (int i=0; i<6; i++) yti[i] += (h_step/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+    // update ti
+    ti += h;
+  }
+
+  // copy results
+  xs = yti[0];
+  ys = yti[1];
+  zs = yti[2];
+
+  return 0;
+
+  /*
+  // tb as datetime instance in MT
+  ngpt::datetime<seconds> tb = glo_tb2date(true);
   // tb as sec of day
   double tb_sec = static_cast<double>(tb.sec());
   // compute GST of tb
   double gmstb = __gmst__(tb.mjd().as_underlying_type()+ngpt::mjd0_jd);
   gmstb += OMEGA_E*(tb_sec-10800e0);
   // state vector of SV
-  double x[6];
+  double x[6], acc[3];
   // Initial conditions for ODE
   double cosS {std::cos(gmstb)};
   double sinS {std::sin(gmstb)};
@@ -160,81 +237,33 @@ const noexcept
   x[3] = data__[4]*cosS - data__[8]*sinS - OMEGA_E*x[1];
   x[4] = data__[4]*sinS + data__[8]*cosS + OMEGA_E*x[0];
   x[5] = data__[12];
+  // projections of accelerations
+  acc[0] = data__[5]*cosS - data[9]*sinS; // Jx0m + Jx0s
+  acc[1] = data__[5]*sinS + data[9]*cosS; // Jy0m + Jy0s
+  acc[2] = data__[13];                    // Jz0m + Jz0s
 
-
-  /*
-  long ltb = std::fmod(static_cast<long>(data__[2]), 86400L);
-  double tb = static_cast<double>(ltb);
-  double ti = t_sod; // (t_sod-10800e0); // t to MT
-  printf("\ntb=%20.5f ti=%20.5f", tb, ti);
-  
-  // the sidereal time in Greenwich at midnight GMT of a date at which the 
-  // epoch te is specified. (Notice: GLONASS_time = UTC(SU) + 3 hours)
-  double mjd_te = static_cast<double>(glo_tb2date().mjd().as_underlying_type());
-  double gmst = __gmst__(mjd_te+ngpt::mjd0_jd);
-
-  // sidereal time at epoch te, to which are referred the initial conditions,
-  // in Greenwich meridian
-  double Sti = gmst + OMEGA_E*(tb-10800e0);
-
-  double x[6], acc[3];
-  // the initial conditions (x(te),y(te),z(te),vx(te),vy(te),vz(te)), as 
-  // broadcast in the GLONASS navigation message, are in the ECEF Greenwich 
-  // coordinate system PZ-90. Therefore, and previous to orbit integration, 
-  // they must be transformed to an absolute (inertial) coordinate system
-  double cosS {std::cos(Sti)};
-  double sinS {std::sin(Sti)};
-  x[0] = data__[3]*cosS - data__[7]*sinS;
-  x[1] = data__[3]*sinS + data__[7]*cosS;
-  x[2] = data__[11];
-  x[3] = data__[4]*cosS - data__[8]*sinS - OMEGA_E*x[1];
-  x[4] = data__[4]*sinS + data__[8]*cosS + OMEGA_E*x[0];
-  x[5] = data__[12];
-  for (int i=0; i<6; i++) x[i]*=1e3;
-
-  // The (X′′(te),Y′′(te),Z′′(te)) acceleration components broadcast in the 
-  // navigation message are the projections of luni-solar accelerations to axes 
-  // of the ECEF Greenwich coordinate system. Thence, these accelerations must 
-  // be transformed to the inertial system
-  acc[0] = data__[5]*cosS - data__[9]*sinS;
-  acc[1] = data__[5]*sinS + data__[9]*cosS;
-  acc[2] = data__[13];
-  for (int i=0; i<3; i++) acc[i]*=1e3;
-  
-  // Runge-Kutta 4th with step = h_step
-  int it = 0;
-  double k[6*4], xinp[6];
-  double h = (ti>tb?h_step:-h_step);
-  // while (std::abs(t-tb)>1e-9) {
-  for (double t=tb; std::abs(t-ti)>1e-9; t+=h) {
-    printf("\nRK4 iteration: %03d t=%20.5f ti=%20.5f",it,t,ti);
-    if (it>1000) return 1;
-    ++it;
-    // compute k1 = F(t0, Y0)
-    glo_state2deriv(x, acc, k); 
-    //compute k2 = F(t0+h/2, Y0+h*k1/2)
-    for (int i=0; i<6; i++) xinp[i] = x[i] + h*k[i] / 2e0;
-    glo_state2deriv(xinp, acc, k+6);
-    //compute k3 = F(t0+h/2, Y0+h*k2/2)
-    for (int i=0; i<6; i++) xinp[i] = x[i] + h*k[6+i] / 2e0;
-    glo_state2deriv(xinp, acc, k+12);
-    // compute k4 = F(t0+h, Y0+h*k3)
-    for (int i=0; i<6; i++) xinp[i] = x[i] + h*k[12+i];
-    glo_state2deriv(xinp, acc, k+18);
-    for (int i=0; i<6; i++) x[i] += (h/6e0)*(k[i] + 2*k[6+i] + 2*k[12+i] + k[18+i]);
-    t+=h;
+  double k1[6], k2[6], k3[6], k4[6];
+  double ytmp[6], yti[6];
+  std::copy(x, x+6, yti);
+  double h = t_sod>tb_sec?h_step:-h_step;
+  double ti= tb_sec;
+  // Perform Runge-Kutta 4th for the interval t=tb_sec:t_sod with step=h_step
+  while (std::abs(t_sod-ti)>1e-9) {
+    // compute k1
+    derivs(yti, acc, k1);
+    // compute k2
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k1[i];
+    derivs(ytmp, acc, k2);
+    // compute k3
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k2[i];
+    derivs(ytmp, acc, k3);
+    // compute k4
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + h_step*k3[i];
+    derivs(ytmp, acc, k4);
+    // update y
+    for (int i=0; i<6; i++) yti[i] += (h_step/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+    // update ti
+    ti += h;
   }
-
-  // Transform back to PZ90
-  Sti = gmst + OMEGA_E*(ti-10800e0);
-  cosS = std::cos(Sti);
-  sinS = std::sin(Sti);
-  xs = x[0]*cosS - x[1]*sinS;
-  ys = -x[0]*sinS + x[1]*cosS;
-  zs = x[2];
-  xs = x[0];
-  ys = x[1];
-  zs = x[2];
-  return 0;
   */
 }
