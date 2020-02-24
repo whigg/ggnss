@@ -74,6 +74,9 @@ NavDataFrame::glo_tb2date(bool to_MT) const noexcept
   int  offset = dow_toc - dow_tb;
   ngpt::datetime<ngpt::seconds> tbdate(toc__.mjd()-ngpt::modified_julian_day(offset), 
     ngpt::seconds(sod_tb));
+  /*std::cout<<"\n\tToE: "<<ngpt::strftime_ymd_hms<seconds>(this->toc__)
+    <<" ToB: "<<ngpt::strftime_ymd_hms<seconds>(tbdate)
+    <<" tb sec="<<(int)data__[2] % 86400;*/
   return tbdate;
 }
 
@@ -217,12 +220,13 @@ noexcept
 
 /// @brief get SV coordinates from navigation block
 ///
-/// @param[in] 
+/// @param[in]  t_sod Seconds of day (as double) in MT
 /// @cite GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of 
 ///       mass position and velocity vector components using ephemeris data"
 /// see https://gssc.esa.int/navipedia/index.php/GLONASS_Satellite_Coordinates_Computation
 int
-NavDataFrame::glo_ecef(double t_sod, double& xs, double& ys, double& zs, double* vel)
+NavDataFrame::glo_ecef(double t_sod, double& xs, double& ys, double& zs, 
+  double* vel)
 const noexcept
 {
   double x[6], acc[3];
@@ -232,6 +236,11 @@ const noexcept
   ngpt::datetime<seconds> tb = glo_tb2date(true);
   // tb as sec of day
   double tb_sec = tb.sec().to_fractional_seconds();
+  if (std::abs(tb_sec-t_sod)>15*60e0) {
+    std::cerr<<"\n[ERROR] Dates too far away to compute orbit! ti="<<t_sod<<", tb="<<tb_sec;
+    std::cerr<<"\n        tb date is: "<<ngpt::strftime_ymd_hms<ngpt::seconds>(tb);
+    return 9;
+  }
   // Initial conditions for ODE aka x = [x0, y0, z0, Vx0, Vy0, Vz0]
   x[0] = data__[3];
   x[1] = data__[7];
@@ -248,8 +257,9 @@ const noexcept
   double h = t_sod>tb_sec?h_step:-h_step;
   double ti= tb_sec;
   double t_lim = t_sod-std::round((t_sod-tb_sec)/86400)*86400;
+  int max_it=0;
   // Perform Runge-Kutta 4th 
-  while (std::abs(ti-t_lim)>1e-9) {
+  while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
     // printf("\nt=%10.5f x=%+20.5f y=%+20.5f z=%+20.5f", ti, yti[0], yti[1], yti[2]);
     // compute k1
     glo_state_deriv(yti, acc, k1);
@@ -267,6 +277,10 @@ const noexcept
     // update ti
     ti += h;
   }
+  if (max_it>=1500) {
+    std::cerr<<"\n[ERROR] h="<<h<<", from "<<tb_sec<<" to "<<t_lim<<" last t="<<ti;
+    return 10;
+  }
 
   // copy results
   xs = yti[0];
@@ -275,7 +289,7 @@ const noexcept
 
   // copy velocities if needed
   if (vel!=nullptr) std::copy(yti+3, yti+6, vel);
-  printf("\nDelta seconds=%+10.3f min",(t_sod-tb.sec().to_fractional_seconds())/60e0);
+  //printf("\nDelta seconds=%+10.3f min",(t_sod-tb_sec)/60e0);
 
   return 0;
 }
