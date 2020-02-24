@@ -65,12 +65,12 @@ class Sp3:
         num_lines += int(num_sats/17e0)
         for i in range(0,int(num_sats/17e0)):
           line = fin.readline()
-          assert line[0:1] == '++'
+          assert line[0:2] == '++'
         num_lines += int(num_sats/17e0)
         while line and line[0] != '*':
           line = fin.readline()
           num_lines+=1
-      return num_lines
+      return num_lines-1
     else:
       raise RuntimeError("[ERROR] Sp3 file has corrupt header version")
 
@@ -92,6 +92,7 @@ class Sp3:
 
   def __resolve_epoch_header_line__(self, line):
     if line[0] != '*':
+      print("[ERROR] Cannot resolve epoch header line \"{:}\"".format(line.strip()))
       raise RuntimeError("[ERROR] Sp3 file has corrupt epoch header line")
     try:
       year  = int(line[3:7])
@@ -138,5 +139,5 @@ class Sp3:
       raise RuntimeError("[ERROR] Failed to resolve position line")
 
 if __name__ == "__main__":
-  sp3 = Sp3("../data/COD20820.EPH_M")
-  sp3.read_satellite_records("G02")
+  sp3 = Sp3("../data/COD0MGXFIN_20200010000_01D_05M_ORB.SP3")
+  sp3.read_satellite_records("R03")

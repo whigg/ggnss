@@ -68,7 +68,10 @@ public:
   glo_tb2date(bool to_MT=true) const noexcept;
 
   int
-  glo_ecef(double t_insod, double& x, double& y, double& z)
+  glo_ecef(double t_insod, double& x, double& y, double& z, double* vel=nullptr)
+  const noexcept;
+  int
+  glo_ecef2(double t_insod, double& x, double& y, double& z, double* vel=nullptr)
   const noexcept;
   
   int
@@ -89,13 +92,13 @@ public:
   
   template<typename T>
     int
-    glo_ecef(ngpt::datetime<T> epoch, double& x, double& y, double& z)
+    glo_ecef(ngpt::datetime<T> epoch, double& x, double& y, double& z, double* vel=nullptr)
     const noexcept
   {
     //epoch.remove_seconds(ngpt::seconds(10800L));
     T sec_of_day = epoch.sec();
     double sec = sec_of_day.to_fractional_seconds();
-    return this->glo_ecef(sec, x, y, z);
+    return this->glo_ecef(sec, x, y, z, vel);
   }
   
   template<typename T>
@@ -113,8 +116,6 @@ public:
 
   double&
   data(int idx) noexcept { return data__[idx]; }
-  void
-  toc(ngpt::datetime<seconds> d) noexcept { toc__=d; }
 
   SATELLITE_SYSTEM
   sys() const noexcept { return sys__; }
@@ -124,6 +125,8 @@ public:
 
   ngpt::datetime<ngpt::seconds>
   toc() const noexcept { return toc__; }
+  void
+  set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}
   
 private:
   SATELLITE_SYSTEM              sys__{};     ///< Satellite system
