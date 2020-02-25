@@ -71,10 +71,10 @@ public:
   glo_tb2date(bool to_MT) const noexcept;
 
   int
-  glo_ecef(double t_insod, double& x, double& y, double& z, double* vel=nullptr)
+  glo_ecef(double t_insod, double tb_sod, double& x, double& y, double& z, double* vel=nullptr)
   const noexcept;
   int
-  glo_ecef2(double t_insod, double& x, double& y, double& z, double* vel=nullptr)
+  glo_ecef2(double t_insod, double tb_sod, double& x, double& y, double& z, double* vel=nullptr)
   const noexcept;
   
   int
@@ -99,11 +99,18 @@ public:
       double* vel=nullptr)
     const noexcept
   {
+    auto ti_str = ngpt::strftime_ymd_hms<seconds>(epoch);
     epoch.add_seconds(ngpt::seconds(10800L));
-    std::cout<<"\n .... computing values for "
-      <<ngpt::strftime_ymd_hms<seconds>(epoch);
     double sec = epoch.sec().to_fractional_seconds();
-    return this->glo_ecef(sec, x, y, z, vel);
+    ngpt::datetime<seconds> tb = glo_tb2date(true);
+    double tb_sec = tb.sec().to_fractional_seconds();
+    if (epoch.mjd()>tb.mjd()) {
+      sec += 86400e0;
+    } else if (epoch.mjd()<tb.mjd()) {
+      sec = sec - 86400e0;
+    }
+    printf("\nD\"%19s\" %+20.5f", ti_str.c_str(), ngpt::delta_sec(tb, epoch).to_fractional_seconds());
+    return this->glo_ecef(sec, tb_sec, x, y, z, vel);
   }
   
   template<typename T>

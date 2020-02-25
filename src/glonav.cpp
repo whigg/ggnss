@@ -74,7 +74,7 @@ NavDataFrame::glo_tb2date(bool to_MT) const noexcept
   int  dow_tb = sow_tb / 86400L;
   long sod_tb = sow_tb % 86400L;
   int  offset = dow_toc - dow_tb;
-  ngpt::datetime<ngpt::seconds> tbdate(toc__.mjd()-ngpt::modified_julian_day(offset), 
+  ngpt::datetime<ngpt::seconds> tbdate(toc.mjd()-ngpt::modified_julian_day(offset), 
     ngpt::seconds(sod_tb));
   return tbdate;
 }
@@ -224,7 +224,7 @@ noexcept
 ///       mass position and velocity vector components using ephemeris data"
 /// see https://gssc.esa.int/navipedia/index.php/GLONASS_Satellite_Coordinates_Computation
 int
-NavDataFrame::glo_ecef(double t_sod, double& xs, double& ys, double& zs, 
+NavDataFrame::glo_ecef(double t_sod, double tb_sec, double& xs, double& ys, double& zs, 
   double* vel)
 const noexcept
 {
@@ -232,20 +232,13 @@ const noexcept
   double k1[6], k2[6], k3[6], k4[6];
   double ytmp[6], yti[6];
   // tb as datetime instance in MT
-  ngpt::datetime<seconds> tb = glo_tb2date(true);
+  // ngpt::datetime<seconds> tb = glo_tb2date(true);
   // tb as sec of day
-  double tb_sec = tb.sec().to_fractional_seconds();
-  std::cout<<" from frame tb: "<<ngpt::strftime_ymd_hms<seconds>(tb)
-        <<" aka DeltaSec="<<tb_sec-t_sod;
+  // double tb_sec = tb.sec().to_fractional_seconds();
   if (std::abs(tb_sec-t_sod)>15*60e0) {
-    /*
-    std::cerr<<"\n[ERROR] Dates too far away to compute orbit! ti="<<t_sod<<", tb="<<tb_sec<<", dt="<<std::abs(t_sod-tb_sec);
-    std::cerr<<"\n        ToB date is: "<<ngpt::strftime_ymd_hms<ngpt::seconds>(tb)<<"MT (aka "<<std::fmod(data__[2], 86400)<<" UTC seconds)";
-    auto toe__ = toc__; toe__.add_seconds(seconds(10800));
-    std::cerr<<"\n        ToE date is: "<<ngpt::strftime_ymd_hms<ngpt::seconds>(toe__)<<"MT";
-    */
     return 9;
   }
+
   // Initial conditions for ODE aka x = [x0, y0, z0, Vx0, Vy0, Vz0]
   x[0] = data__[3];
   x[1] = data__[7];
@@ -294,13 +287,12 @@ const noexcept
 
   // copy velocities if needed
   if (vel!=nullptr) std::copy(yti+3, yti+6, vel);
-  //printf("\nDelta seconds=%+10.3f min",(t_sod-tb_sec)/60e0);
 
   return 0;
 }
 
 int
-NavDataFrame::glo_ecef2(double t_sod, double& xs, double& ys, double& zs, double* vel)
+NavDataFrame::glo_ecef2(double t_sod, double tb_sec, double& xs, double& ys, double& zs, double* vel)
 const noexcept
 {
   double x[6], acc[3];
@@ -308,7 +300,10 @@ const noexcept
   double ytmp[6], yti[6];
   
   // tb as datetime instance in MT
-  ngpt::datetime<seconds> tb = glo_tb2date(true);
+  // ngpt::datetime<seconds> tb = glo_tb2date(true);
+  if (std::abs(tb_sec-t_sod)>15*60e0) {
+    return 9;
+  }
   
   // Initial conditions for ODE aka x = [x0, y0, z0, Vx0, Vy0, Vz0]
   x[0] = data__[3];
@@ -324,11 +319,13 @@ const noexcept
   acc[2] = data__[13];
   
   // transform state vector to inertial frame
-  glo_ecef2inertial(x, tb, ytmp, acc);
+  // tb as datetime instance in MT
+  ngpt::datetime<seconds> tb_dt = glo_tb2date(true);
+  glo_ecef2inertial(x, tb_dt, ytmp, acc);
   std::copy(ytmp, ytmp+6, x);
 
   // tb as sec of day
-  double tb_sec = tb.sec().to_fractional_seconds();
+  // double tb_sec = tb.sec().to_fractional_seconds();
   
   // Perform Runge-Kutta 4th 
   std::copy(x, x+6, yti);
@@ -356,7 +353,7 @@ const noexcept
 
   // all done! result state vector is at yti in an inertial RF. convert to PZ90
   // ti as datetime instance in MT
-  ngpt::datetime<ngpt::seconds> tidt (tb.mjd(), ngpt::seconds(t_sod));
+  ngpt::datetime<ngpt::seconds> tidt (tb_dt.mjd(), ngpt::seconds(t_sod));
   glo_inertial2ecef(yti, tidt, x);
 
   // copy results
@@ -366,7 +363,6 @@ const noexcept
 
   // copy velocities if needed
   if (vel!=nullptr) std::copy(x+3, x+6, vel);
-  printf("\nDelta seconds=%+10.3f min",(t_sod-tb.sec().to_fractional_seconds())/60e0);
 
   return 0;
 }
