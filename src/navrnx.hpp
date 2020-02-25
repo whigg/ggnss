@@ -4,6 +4,9 @@
 #include <fstream>
 #include "ggdatetime/dtcalendar.hpp"
 #include "satsys.hpp"
+#ifdef DEBUG
+#include "ggdatetime/datetime_write.hpp"
+#endif
 
 namespace ngpt
 {
@@ -65,7 +68,7 @@ public:
   /// @brief get SV coordinates (WGS84) from navigation block
   /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   ngpt::datetime<seconds>
-  glo_tb2date(bool to_MT=true) const noexcept;
+  glo_tb2date(bool to_MT) const noexcept;
 
   int
   glo_ecef(double t_insod, double& x, double& y, double& z, double* vel=nullptr)
@@ -97,6 +100,8 @@ public:
     const noexcept
   {
     epoch.add_seconds(ngpt::seconds(10800L));
+    std::cout<<"\n .... computing values for "
+      <<ngpt::strftime_ymd_hms<seconds>(epoch);
     double sec = epoch.sec().to_fractional_seconds();
     return this->glo_ecef(sec, x, y, z, vel);
   }

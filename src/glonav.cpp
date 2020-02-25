@@ -66,17 +66,16 @@ NavDataFrame::glo_tb2date(bool to_MT) const noexcept
   if (to_MT) toc.add_seconds(ngpt::seconds(10800L));
   long sow;
   toc.as_gps_wsow(sow);
-  int  dow_toc = sow / 86400L;        // day of week of toc
+  int dow_toc = sow / 86400L; // day of week of toc
 
-  long sow_tb = ((to_MT)?(static_cast<long>(data__[2])+10800L):(static_cast<long>(data__[2])));
+  long sow_tb = ((to_MT)?
+    (static_cast<long>(data__[2])+10800L):
+    (static_cast<long>(data__[2])));
   int  dow_tb = sow_tb / 86400L;
   long sod_tb = sow_tb % 86400L;
   int  offset = dow_toc - dow_tb;
   ngpt::datetime<ngpt::seconds> tbdate(toc__.mjd()-ngpt::modified_julian_day(offset), 
     ngpt::seconds(sod_tb));
-  /*std::cout<<"\n\tToE: "<<ngpt::strftime_ymd_hms<seconds>(this->toc__)
-    <<" ToB: "<<ngpt::strftime_ymd_hms<seconds>(tbdate)
-    <<" tb sec="<<(int)data__[2] % 86400;*/
   return tbdate;
 }
 
@@ -236,9 +235,15 @@ const noexcept
   ngpt::datetime<seconds> tb = glo_tb2date(true);
   // tb as sec of day
   double tb_sec = tb.sec().to_fractional_seconds();
+  std::cout<<" from frame tb: "<<ngpt::strftime_ymd_hms<seconds>(tb)
+        <<" aka DeltaSec="<<tb_sec-t_sod;
   if (std::abs(tb_sec-t_sod)>15*60e0) {
-    std::cerr<<"\n[ERROR] Dates too far away to compute orbit! ti="<<t_sod<<", tb="<<tb_sec;
-    std::cerr<<"\n        tb date is: "<<ngpt::strftime_ymd_hms<ngpt::seconds>(tb);
+    /*
+    std::cerr<<"\n[ERROR] Dates too far away to compute orbit! ti="<<t_sod<<", tb="<<tb_sec<<", dt="<<std::abs(t_sod-tb_sec);
+    std::cerr<<"\n        ToB date is: "<<ngpt::strftime_ymd_hms<ngpt::seconds>(tb)<<"MT (aka "<<std::fmod(data__[2], 86400)<<" UTC seconds)";
+    auto toe__ = toc__; toe__.add_seconds(seconds(10800));
+    std::cerr<<"\n        ToE date is: "<<ngpt::strftime_ymd_hms<ngpt::seconds>(toe__)<<"MT";
+    */
     return 9;
   }
   // Initial conditions for ODE aka x = [x0, y0, z0, Vx0, Vy0, Vz0]

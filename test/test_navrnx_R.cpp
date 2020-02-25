@@ -87,12 +87,14 @@ int main(int argc, char* argv[])
     auto tb = navar.glo_tb2date(false); // tb in UTC
     double sec_diff = cur_dt_utc.sec().to_fractional_seconds() 
              - tb.sec().to_fractional_seconds();
-    std::cout<<"\nti: "<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)
-      <<", tb: "<<ngpt::strftime_ymd_hms<seconds>(tb)
-      <<" delta_t="<<sec_diff<<"sec";
+    /*std::cout<<"\nti: "<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)
+      <<"UTC, tb: "<<ngpt::strftime_ymd_hms<seconds>(tb)
+      <<"UTC delta_t="<<sec_diff<<"sec";*/
     if (std::abs(sec_diff)<15*60e0) {
-      std::cout<<"\n .... computing values";
-      std::cout<<" block.glo_ecef("<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)<<")";
+      std::cout<<"\n .... computing values for "
+        <<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)
+        <<" from frame tb: "<<ngpt::strftime_ymd_hms<seconds>(tb)
+        <<" aka DeltaSec="<<sec_diff;
       if (block.glo_ecef(cur_dt_utc, x, y, z)) {
         std::cerr<<"\n[ERROR] Failed to compute orbit for "<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc);
         return 10;
