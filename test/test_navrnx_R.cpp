@@ -74,6 +74,10 @@ int main(int argc, char* argv[])
       j = nav.ignore_next_block();
     }
   }
+  if (!frame_read) {
+    std::cerr<<"\n[ERROR] Failed to find nav block for PRN="<<PRN;
+    return 6;
+  }
   std::cout<<"\nFrame read for PRN="<<PRN<<"; going on ...";
   // set starting time
   ngpt::datetime<seconds> cur_dt_utc = block.toc();
@@ -86,21 +90,22 @@ int main(int argc, char* argv[])
   // compute x,y,z for one day, every 15 min
   while (cur_dt_utc<=utc_limit && ++it<1500) {
     auto tb = block.glo_tb2date(false); // tb in UTC
-    double sec_diff = cur_dt_utc.sec().to_fractional_seconds() 
-             - tb.sec().to_fractional_seconds();
-    if (std::abs(sec_diff)<15*60e0) {
-      if (block.glo_ecef(cur_dt_utc, x, y, z)) {
+    auto sec_diff = delta_sec(tb, cur_dt_utc);
+    double delta_sec = sec_diff.to_fractional_seconds(); // tb - ti
+    if (std::abs(delta_sec)<15*60e0) {
+      if ((j=block.glo_ecef(cur_dt_utc, x, y, z))) {
         std::cerr<<"\n[ERROR] Failed to compute orbit for "<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)<<" UTC";
         std::cerr<<"\n        tb date is                  "<<ngpt::strftime_ymd_hms<seconds>(tb)<<" UTC";
+        std::cerr<<"\n        Time difference (in sec)    "<<delta_sec<<", error_code: "<<j<<"\n";
         return 10;
       }
       std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)<<"\" ";
-      std::printf("%+20.6f%+20.6f%+20.6f", x*1e-3, y*1e-3, z*1e-3);
+      std::printf("%+20.6f%+20.6f%+20.6f %10.2f", x*1e-3, y*1e-3, z*1e-3, delta_sec);
       cur_dt_utc+=intrvl;
-    } else if (sec_diff<=-15*60e0) {
-      cur_dt_utc+=intrvl;
-    } else if (sec_diff>=15*60e0) {
+    } else if (delta_sec<=-15*60e0) { // ti > tb && ti - tb > 15min
       if (read_next_glo_frame(nav, PRN, block)) return 5;
+    } else if (delta_sec>=15*60e0) {  // ti < tb && ti - tb < 15min
+      cur_dt_utc+=intrvl;
     } else {
       std::cerr<<"\n[ERROR] Unexpected date error!";
       std::cerr<<"\n        Caused at "<<ngpt::strftime_ymd_hms<seconds>(block.toc())

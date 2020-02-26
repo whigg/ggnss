@@ -236,6 +236,7 @@ const noexcept
   // tb as sec of day
   // double tb_sec = tb.sec().to_fractional_seconds();
   if (std::abs(tb_sec-t_sod)>15*60e0) {
+    std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() Time interval too large! abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
     return 9;
   }
 

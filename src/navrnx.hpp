@@ -99,17 +99,19 @@ public:
       double* vel=nullptr)
     const noexcept
   {
-    auto ti_str = ngpt::strftime_ymd_hms<seconds>(epoch);
+    // t_i and t_b to MT
     epoch.add_seconds(ngpt::seconds(10800L));
-    double sec = epoch.sec().to_fractional_seconds();
     ngpt::datetime<seconds> tb = glo_tb2date(true);
+    double sec = epoch.sec().to_fractional_seconds();
     double tb_sec = tb.sec().to_fractional_seconds();
     if (epoch.mjd()>tb.mjd()) {
       sec += 86400e0;
     } else if (epoch.mjd()<tb.mjd()) {
       sec = sec - 86400e0;
     }
-    printf("\nD\"%19s\" %+20.5f", ti_str.c_str(), ngpt::delta_sec(tb, epoch).to_fractional_seconds());
+    // auto ti_str = ngpt::strftime_ymd_hms<seconds>(epoch);
+    // auto tb_str = ngpt::strftime_ymd_hms<seconds>(tb);
+    // printf("\n(2) ti=%19s tb=%19s ti:%+20.5f tb:%20.5f", ti_str.c_str(), tb_str.c_str(), sec, tb_sec);
     return this->glo_ecef(sec, tb_sec, x, y, z, vel);
   }
   
