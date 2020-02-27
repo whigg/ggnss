@@ -251,6 +251,15 @@ const noexcept
   acc[0] = data__[5];
   acc[1] = data__[9];
   acc[2] = data__[13];
+  
+  // quick return if tb == ti
+  if (t_sod == tb_sec) {
+    xs = x[0];
+    ys = x[1];
+    zs = x[2];
+    if (vel!=nullptr) std::copy(x+3, x+6, vel);
+    return 0;
+  }
 
   std::copy(x, x+6, yti);
   double h = t_sod>tb_sec?h_step:-h_step;
@@ -263,16 +272,16 @@ const noexcept
     // compute k1
     glo_state_deriv(yti, acc, k1);
     // compute k2
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k1[i];
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h/2e0)*k1[i];
     glo_state_deriv(ytmp, acc, k2);
     // compute k3
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k2[i];
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h/2e0)*k2[i];
     glo_state_deriv(ytmp, acc, k3);
     // compute k4
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + h_step*k3[i];
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + h*k3[i];
     glo_state_deriv(ytmp, acc, k4);
     // update y
-    for (int i=0; i<6; i++) yti[i] += (h_step/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+    for (int i=0; i<6; i++) yti[i] += (h/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
     // update ti
     ti += h;
   }
@@ -303,6 +312,7 @@ const noexcept
   // tb as datetime instance in MT
   // ngpt::datetime<seconds> tb = glo_tb2date(true);
   if (std::abs(tb_sec-t_sod)>15*60e0) {
+    std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() Time interval too large! abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
     return 9;
   }
   
@@ -319,15 +329,21 @@ const noexcept
   acc[1] = data__[9];
   acc[2] = data__[13];
   
+  // quick return if tb == ti
+  if (t_sod == tb_sec) {
+    xs = x[0];
+    ys = x[1];
+    zs = x[2];
+    if (vel!=nullptr) std::copy(x+3, x+6, vel);
+    return 0;
+  }
+
   // transform state vector to inertial frame
   // tb as datetime instance in MT
   ngpt::datetime<seconds> tb_dt = glo_tb2date(true);
   glo_ecef2inertial(x, tb_dt, ytmp, acc);
   std::copy(ytmp, ytmp+6, x);
 
-  // tb as sec of day
-  // double tb_sec = tb.sec().to_fractional_seconds();
-  
   // Perform Runge-Kutta 4th 
   std::copy(x, x+6, yti);
   double h = t_sod>tb_sec?h_step:-h_step;
@@ -336,18 +352,18 @@ const noexcept
   while (std::abs(ti-t_lim)>1e-9) {
     // printf("\nt=%10.5f x=%+20.5f y=%+20.5f z=%+20.5f", ti, yti[0], yti[1], yti[2]);
     // compute k1
-    glo_state_deriv(yti, acc, k1);
+    glo_state_deriv_inertial(yti, acc, k1);
     // compute k2
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k1[i];
-    glo_state_deriv(ytmp, acc, k2);
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h/2e0)*k1[i];
+    glo_state_deriv_inertial(ytmp, acc, k2);
     // compute k3
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h_step/2e0)*k2[i];
-    glo_state_deriv(ytmp, acc, k3);
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h/2e0)*k2[i];
+    glo_state_deriv_inertial(ytmp, acc, k3);
     // compute k4
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + h_step*k3[i];
-    glo_state_deriv(ytmp, acc, k4);
+    for (int i=0; i<6; i++) ytmp[i] = yti[i] + h*k3[i];
+    glo_state_deriv_inertial(ytmp, acc, k4);
     // update y
-    for (int i=0; i<6; i++) yti[i] += (h_step/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+    for (int i=0; i<6; i++) yti[i] += (h/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
     // update ti
     ti += h;
   }

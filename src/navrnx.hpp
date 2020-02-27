@@ -109,10 +109,7 @@ public:
     } else if (epoch.mjd()<tb.mjd()) {
       sec = sec - 86400e0;
     }
-    // auto ti_str = ngpt::strftime_ymd_hms<seconds>(epoch);
-    // auto tb_str = ngpt::strftime_ymd_hms<seconds>(tb);
-    // printf("\n(2) ti=%19s tb=%19s ti:%+20.5f tb:%20.5f", ti_str.c_str(), tb_str.c_str(), sec, tb_sec);
-    return this->glo_ecef(sec, tb_sec, x, y, z, vel);
+    return this->glo_ecef2(sec, tb_sec, x, y, z, vel);
   }
   
   template<typename T>
