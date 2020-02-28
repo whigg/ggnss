@@ -65,14 +65,13 @@ public:
   gps_ecef(int gps_week, double t_insow, double& x, double& y, double& z)
   const noexcept;
   
-  /// @brief get SV coordinates (WGS84) from navigation block
-  /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   ngpt::datetime<seconds>
   glo_tb2date(bool to_MT) const noexcept;
 
   int
-  glo_ecef(double t_insod, double tb_sod, double& x, double& y, double& z, double* vel=nullptr)
+  glo_ecef(double t_insod, double tb_sod, double* state)
   const noexcept;
+
   int
   glo_ecef2(double t_insod, double tb_sod, double& x, double& y, double& z, double* vel=nullptr)
   const noexcept;
@@ -93,10 +92,13 @@ public:
     return this->gps_ecef(iwk, sec, x, y, z);
   }
   
+  /// @brief Compute SV centre of mass state vector in ECEF PZ90 frame at
+  ///        epoch epoch using the simplified algorithm
+  /// @param[in] epoch The time in UTC for which we want the SV state
+  /// @param[out] The SV centre of mass state vector in meters, meters/sec
   template<typename T>
     int
-    glo_ecef(ngpt::datetime<T> epoch, double& x, double& y, double& z, 
-      double* vel=nullptr)
+    glo_ecef(ngpt::datetime<T> epoch, double* state)
     const noexcept
   {
     // t_i and t_b to MT
@@ -104,12 +106,14 @@ public:
     ngpt::datetime<seconds> tb = glo_tb2date(true);
     double sec = epoch.sec().to_fractional_seconds();
     double tb_sec = tb.sec().to_fractional_seconds();
+    // reference ti and tb to the same day (it may happen? that ti and tb are
+    // in different days)
     if (epoch.mjd()>tb.mjd()) {
       sec += 86400e0;
     } else if (epoch.mjd()<tb.mjd()) {
       sec = sec - 86400e0;
     }
-    return this->glo_ecef2(sec, tb_sec, x, y, z, vel);
+    return this->glo_ecef(sec, tb_sec, state);
   }
   
   template<typename T>

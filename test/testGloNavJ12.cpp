@@ -24,15 +24,14 @@ int main()
   frame.set_toc(ngpt::datetime<seconds>(ngpt::year(2012), ngpt::month(9),
     ngpt::day_of_month(7), seconds(11700L)));
 
-  double x,y,z;
-  double vel[3];
+  double state[6];
   ngpt::datetime<seconds> ti = ngpt::datetime<seconds>(ngpt::year(2012), ngpt::month(9),
     ngpt::day_of_month(7), seconds(12300L));
-  frame.glo_ecef<seconds>(ti, x, y, z, vel);
-  printf("\n x=%+20.5f  y=%+20.5f  z=%+20.5f meters", x,y,z);
-  printf("\nVx=%+20.5f Vy=%+20.5f Vz=%+20.5f meters/sec", vel[0], vel[1], vel[2]);
-  printf("\nDx=%20.5f  Dy=%20.5f  Dz=%20.5f  meters", std::abs(x-7523174.853), 
-    std::abs(y+10506962.176), std::abs(z-21999239.866));
+  frame.glo_ecef<seconds>(ti, state);
+  printf("\n x=%+20.5f  y=%+20.5f  z=%+20.5f meters", state[0], state[1], state[2]);
+  printf("\nVx=%+20.5f Vy=%+20.5f Vz=%+20.5f meters/sec", state[3], state[4], state[5]);
+  printf("\nDx=%20.5f  Dy=%20.5f  Dz=%20.5f  meters", std::abs(state[0]-7523174.853), 
+    std::abs(state[1]+10506962.176), std::abs(state[2]-21999239.866));
   std::cout<<"\n";
   return 0;
 }

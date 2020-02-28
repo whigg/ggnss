@@ -41,7 +41,6 @@ using ngpt::NavDataFrame;
 ///          System Time! I.e. the time tags in the GLONASS navigation files 
 ///          are given in UTC (i.e. not Moscow time or GPS time).
 
-
 // integration step for glonass in seconds (h parameter for Runge-Kutta4)
 constexpr double h_step = 60e0;
 
@@ -58,30 +57,51 @@ constexpr double J2_GLO = 1082625.75e-9;
 // mean angular velocity of the Earth relative to vernal equinox
 constexpr double OMEGA_GLO = 7.2921151467e-5; // rad/s
 
-/// Time of ephemeris as datetime<seconds> instance in UTC
+/// @brief Time of ephemeris as datetime<seconds> instance in UTC or MT
+///
+/// Transform the message frame time of the NavDataFrame instance to a
+/// datetime<seconds> instance. The message frame time is given as:
+/// data__[2]  : Message frame time(tk+nd*86400) in seconds of UTC week
+/// in RINEX v3.x This function will transform this to a datetime.
+///
+/// The message frame time is given as seconds of UTC week, hence the function
+/// will use TimeOfClock (ToC) to resolve this to a date. The 
+/// pseudoalgorithm is something like:
+/// 1. resolve ToC to Week (ToC_wk) and DayOfWeek (ToC_dw)
+/// 2. resolve message frame time (Tb) to DayOfWeek (Tb_dw) and SecondsOfWeek
+///    (Tb_sw)
+/// 3. resulting date is ToC.MJD - (ToC_dw - Tb_dw) and time Tb_sw
+/// 
+/// @param[in] to_MT If set to true, then the resulting datetime instance will
+///                  be in Moscow UTC time, aka MT; if set to false then the
+///                  resulting date will be in UTC.
+/// @result message frame time as datetime<seconds> instance in UTC or MT
 ngpt::datetime<ngpt::seconds>
 NavDataFrame::glo_tb2date(bool to_MT) const noexcept
 {
+  // transform ToC to day_of_week
   auto toc = this->toc__;
   if (to_MT) toc.add_seconds(ngpt::seconds(10800L));
-  long sow;
+  long sow; 
   toc.as_gps_wsow(sow);
   int dow_toc = sow / 86400L; // day of week of toc
-
+  // transform message frame time (tb) to day of week and seconds of day
   long sow_tb = ((to_MT)?
     (static_cast<long>(data__[2])+10800L):
     (static_cast<long>(data__[2])));
   int  dow_tb = sow_tb / 86400L;
   long sod_tb = sow_tb % 86400L;
+  // return the date adding any days offset
   int  offset = dow_toc - dow_tb;
   ngpt::datetime<ngpt::seconds> tbdate(toc.mjd()-ngpt::modified_julian_day(offset), 
     ngpt::seconds(sod_tb));
   return tbdate;
 }
 
-/// @brief Compute time arguments for the integration of GLONASS ephemerids
-/// @param[in] jd0 Julian Date for 00:00 in MT
-/// @return Greenwich Mean Sidereal Time (GMST) for dj0
+/// Compute Greenwich Mean Sidereal Time given a Julian Date
+///
+/// @param[in] jd0 Julian Date for 00:00
+/// @return Greenwich Mean Sidereal Time (GMST) for given Julian Date
 /// @cite GLONASS-ICD, Appendix K, "Algorithm for calculation of the current 
 ///       Julian date JD0, Gregorian date, and GMST"
 double
@@ -123,7 +143,7 @@ __gmst__(double jd0) noexcept
 /// @param[out] Array of length 6; at return this is filled with the values of
 ///             the computed ODE system
 /// 
-// @warning All units are in meters, meters/sec and meters2/sec
+/// @warning All units are in meters, meters/sec and meters2/sec
 void
 glo_state_deriv(const double *x, const double* acc, double *xdot)
 noexcept
@@ -144,6 +164,28 @@ noexcept
   return;
 }
 
+/// This is the computation of the system of ODE's described in J.1 in 
+/// GLONASS ICD, par. J1 "Precise algorithm for determination of position and 
+/// velocity vector components for the SV’s center of mass for the given 
+/// instant of MT"
+/// 
+/// Components for the SV’s center of mass for the given instant of MT
+/// x    = [ x0, y0, z0, Vx0,    Vy0,    Vz0   ]
+/// xdot = [ Vx, Vy, Vz, V_dotx, Vdot_y, Vdot_z]
+/// acc is the vector of accelerations induced by gravitational perturbations of 
+/// the Sun and Moon. 
+/// The function will use x and acc to compute the xdot vector, using the
+/// system of (differential) equations described in J.1
+///
+/// @param[in] x Array of length 6; state vector at instant t_MT, i.e.
+///              the array [ x(ti), y(ti), z(ti), Vx(ti), Vy(ti), Vz(ti) ]
+/// @param[in] acc Array of length 3; the acceleration components, i.e.
+///              [acc_x(tb), acc_y(tb), acc_z(tb)] as given in the navigation
+///              data frame
+/// @param[out] Array of length 6; at return this is filled with the values of
+///             the computed ODE system
+/// 
+/// @warning All units are in meters, meters/sec and meters2/sec
 void
 glo_state_deriv_inertial(const double *x, const double* acc, double *xdot)
 noexcept
@@ -167,6 +209,19 @@ noexcept
   return;
 }
 
+/// @brief Transform ECEF (PZ90) coordinates to inertial
+///
+/// The transformation is used in the precise algorithm for calculating SV
+/// centre of mass coordinates using the broadcast message. The system of 
+/// equations is described in J.4
+///
+/// @param[in]  x_ecef      State vector in PZ90 reference frame (meters)
+/// @param[in]  tb_MT       datetime<seconds> instance of the current epoch
+/// @param[out] x_inertial  Resulting state vector in the inertial reference
+///                         frame
+/// @param[out] acc         Array of size 3; at input acceleration components
+///                         in ECEF frame; at output acceleration components
+///                         transformed to inertial frame
 void
 glo_ecef2inertial(const double *x_ecef, ngpt::datetime<ngpt::seconds> tb_MT, 
   double *x_inertial, double *acc=nullptr)
@@ -195,6 +250,20 @@ noexcept
 
   return;
 }
+
+/// @brief Transform inertial coordinates to ECEF (PZ90)
+///
+/// The transformation is used in the precise algorithm for calculating SV
+/// centre of mass coordinates using the broadcast message. The system of 
+/// equations is described in J.5
+///
+/// @param[in]  x_inertial  State vector in inertial reference frame (meters)
+/// @param[in]  tb_MT       datetime<seconds> instance of the current epoch
+/// @param[out] x_ecef      Resulting state vector in the ECEF PZ90 reference
+///                         frame
+/// @param[out] acc         Array of size 3; at input acceleration components
+///                         in inertial frame; at output acceleration components
+///                         transformed to ECEF frame
 void
 glo_inertial2ecef(const double *x_inertial, ngpt::datetime<ngpt::seconds> ti_MT, 
   double *x_ecef)
@@ -217,29 +286,37 @@ noexcept
   return;
 }
 
-/// @brief get SV coordinates from navigation block
+/// @brief Compute SV coordinates from navigation block
+/// 
+/// This function will compute the state vector for the SV, at time t_sod
+/// (with reference time tb=tb_sec) in the ECEF PZ-90 reference frame, following
+/// the "simplified" algorithm, aka "Simplified algorithm for determination of 
+/// position and velocity vector components for the SV’s center of mass for the 
+/// given instant in MT". Note that t_sod and tb_sec must not be more than
+/// 15min apart.
 ///
-/// @param[in]  t_sod Seconds of day (as double) in MT
+/// @param[in]  t_sod  Seconds of day (as double) in MT
+/// @param[in]  tb_sec Seconds of day (as double) in MT
+/// @param[out] state  array of size 6; SV centre of mass state vector (aka
+///                    [x,y,z,Vx,Vy,Vz]) at time t_sod in meters, meters/sec
+/// @return an integer denoting the status: 0 means all ok, -1 means that the
+///         computation is performed, but the time interval is more than 15min
+///         apart; anything >0 denotes an error
+///
 /// @cite GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of 
 ///       mass position and velocity vector components using ephemeris data"
-/// see https://gssc.esa.int/navipedia/index.php/GLONASS_Satellite_Coordinates_Computation
 int
-NavDataFrame::glo_ecef(double t_sod, double tb_sec, double& xs, double& ys, double& zs, 
-  double* vel)
+NavDataFrame::glo_ecef(double t_sod, double tb_sec, double* state) 
 const noexcept
 {
-  double x[6], acc[3];
-  double k1[6], k2[6], k3[6], k4[6];
-  double ytmp[6], yti[6];
-  // tb as datetime instance in MT
-  // ngpt::datetime<seconds> tb = glo_tb2date(true);
-  // tb as sec of day
-  // double tb_sec = tb.sec().to_fractional_seconds();
+  int status = 0;
   if (std::abs(tb_sec-t_sod)>15*60e0) {
-    std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() Time interval too large! abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
-    return 9;
+    std::cerr<<"\n[WARNING] NavDataFrame::glo_ecef() Time interval too large!"
+      <<"abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
+    status = -1;
   }
 
+  double x[6], acc[3];
   // Initial conditions for ODE aka x = [x0, y0, z0, Vx0, Vy0, Vz0]
   x[0] = data__[3];
   x[1] = data__[7];
@@ -254,21 +331,19 @@ const noexcept
   
   // quick return if tb == ti
   if (t_sod == tb_sec) {
-    xs = x[0];
-    ys = x[1];
-    zs = x[2];
-    if (vel!=nullptr) std::copy(x+3, x+6, vel);
-    return 0;
+    std::copy(x, x+6, state);
+    return status;
   }
 
-  std::copy(x, x+6, yti);
+  double k1[6], k2[6], k3[6], k4[6];
+  double ytmp[6], yti[6];
   double h = t_sod>tb_sec?h_step:-h_step;
   double ti= tb_sec;
   double t_lim = t_sod-std::round((t_sod-tb_sec)/86400)*86400;
-  int max_it=0;
+  int    max_it=0;
+  std::copy(x, x+6, yti);
   // Perform Runge-Kutta 4th 
   while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
-    // printf("\nt=%10.5f x=%+20.5f y=%+20.5f z=%+20.5f", ti, yti[0], yti[1], yti[2]);
     // compute k1
     glo_state_deriv(yti, acc, k1);
     // compute k2
@@ -286,19 +361,15 @@ const noexcept
     ti += h;
   }
   if (max_it>=1500) {
-    std::cerr<<"\n[ERROR] h="<<h<<", from "<<tb_sec<<" to "<<t_lim<<" last t="<<ti;
+    std::cerr<<"\n[ERROR] h="<<h<<", from "<<tb_sec<<" to "
+      <<t_lim<<" last t="<<ti;
     return 10;
   }
 
   // copy results
-  xs = yti[0];
-  ys = yti[1];
-  zs = yti[2];
+  std::copy(yti, yti+6, state);
 
-  // copy velocities if needed
-  if (vel!=nullptr) std::copy(yti+3, yti+6, vel);
-
-  return 0;
+  return status;
 }
 
 int
@@ -349,7 +420,9 @@ const noexcept
   double h = t_sod>tb_sec?h_step:-h_step;
   double ti= tb_sec;
   double t_lim = t_sod-std::round((t_sod-tb_sec)/86400)*86400;
-  while (std::abs(ti-t_lim)>1e-9) {
+  int max_it=0;
+  // Perform Runge-Kutta 4th 
+  while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
     // printf("\nt=%10.5f x=%+20.5f y=%+20.5f z=%+20.5f", ti, yti[0], yti[1], yti[2]);
     // compute k1
     glo_state_deriv_inertial(yti, acc, k1);
