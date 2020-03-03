@@ -115,6 +115,41 @@ public:
     }
     return this->glo_ecef(sec, tb_sec, state);
   }
+  template<typename T>
+    int
+    glo_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
+    const noexcept
+  {
+    int status = 0;
+    // t_i and t_b to MT
+    t.add_seconds(ngpt::seconds(10800L));
+    ngpt::datetime<seconds> tb = glo_tb2date(true);
+    double sec = t.sec().to_fractional_seconds();
+    double tb_sec = tb.sec().to_fractional_seconds();
+    // reference ti and tb to the same day (it may happen? that ti and tb are
+    // in different days)
+    if (t.mjd()>tb.mjd()) {
+      sec += 86400e0;
+    } else if (t.mjd()<tb.mjd()) {
+      sec = sec - 86400e0;
+    }
+    if ( (status=glo_ecef(sec, tb_sec, state)) ) return status;
+
+    // t_i and t_c to MT
+    sec = t.sec().to_fractional_seconds();
+    auto tc = toc__;
+    tc.add_seconds(10800);
+    double tc_sec = tc.sec().to_fractional_seconds();
+    // reference ti and tc to the same day (it may happen? that ti and tc are
+    // in different days)
+    if (t.mjd()>tc.mjd()) {
+      sec += 86400e0;
+    } else if (t.mjd()<tc.mjd()) {
+      sec = sec - 86400e0;
+    }
+    if ( (status=glo_dtsv(sec, tc_sec, dt)) ) return status;
+    return 0;
+  }
   
   template<typename T>
     int

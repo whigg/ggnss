@@ -1,6 +1,7 @@
 #include <iostream>
 #include "navrnx.hpp"
 #include "ggdatetime/datetime_write.hpp"
+#include "ggeodesy/geodesy.hpp"
 
 using ngpt::NavigationRnx;
 using ngpt::NavDataFrame;
@@ -9,7 +10,7 @@ using ngpt::seconds;
 using ngpt::gps_week;
 
 bool utc2gps = true;
-bool pz902wgs = true;
+bool pz902wgs = false;
 
 int
 read_next_glo_frame(NavigationRnx& nav, int prn, NavDataFrame& block)
@@ -111,7 +112,10 @@ int main(int argc, char* argv[])
         std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)<<"\" ";
       }
       if (pz902wgs) {
-        ngpt::
+        double xwgs[3];
+        ngpt::pz90_to_wgs84(state, xwgs, 1, 0);
+        std::copy(xwgs, xwgs+3, state);
+      }
       std::printf("%+20.6f%+20.6f%+20.6f %10.2f", state[0]*1e-3, state[1]*1e-3, state[2]*1e-3, delta_sec);
       cur_dt_utc+=intrvl;
     } else if (delta_sec<=-15*60e0) { // ti > tb && ti - tb > 15min

@@ -383,7 +383,8 @@ const noexcept
   // tb as datetime instance in MT
   // ngpt::datetime<seconds> tb = glo_tb2date(true);
   if (std::abs(tb_sec-t_sod)>15*60e0) {
-    std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() Time interval too large! abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
+    std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() Time interval too large! "
+      <<"abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
     return 9;
   }
   
@@ -455,4 +456,12 @@ const noexcept
   if (vel!=nullptr) std::copy(x+3, x+6, vel);
 
   return 0;
+}
+
+int
+NavDataFrame::glo_dtsv(double t_tm, double toe_tm, double& dtsv)
+const noexcept
+{
+  double deltat = t_mt - toe - std::round((t_mt-toe)/86400e0)*86400e0;
+  double dtsv = data__[0] + data__[1]*deltat;
 }

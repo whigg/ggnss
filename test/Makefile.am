@@ -20,7 +20,7 @@ MCXXFLAGS = \
 	-Wdisabled-optimization \
 	-DDEBUG
 
-AM_LIBS = -lggdatetime
+AM_LIBS = -lggdatetime -lggeodesy
 
 testObsCode_out_SOURCES   = test_gnssobs.cpp
 testObsCode_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
