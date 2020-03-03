@@ -90,6 +90,7 @@ int main(int argc, char* argv[])
   utc_limit.add_seconds(seconds(86400));
   ngpt::datetime_interval<seconds> intrvl (ngpt::modified_julian_day(0), seconds(1*60L));
   double state[6];
+  double dt;
   int it = 0;
   // compute x,y,z for one day, every 15 min
   while (cur_dt_utc<=utc_limit && ++it<1500) {
@@ -97,7 +98,7 @@ int main(int argc, char* argv[])
     auto sec_diff = delta_sec(tb, cur_dt_utc);
     double delta_sec = sec_diff.to_fractional_seconds(); // tb - ti
     if (std::abs(delta_sec)<15*60e0) {
-      if ((j=block.glo_ecef(cur_dt_utc, state))) {
+      if ((j=block.glo_stateNclock(cur_dt_utc, state, dt))) {
         std::cerr<<"\n[ERROR] Failed to compute orbit for "<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)<<" UTC";
         std::cerr<<"\n        tb date is                  "<<ngpt::strftime_ymd_hms<seconds>(tb)<<" UTC";
         std::cerr<<"\n        Time difference (in sec)    "<<delta_sec<<", error_code: "<<j<<"\n";
@@ -116,7 +117,7 @@ int main(int argc, char* argv[])
         ngpt::pz90_to_wgs84(state, xwgs, 1, 0);
         std::copy(xwgs, xwgs+3, state);
       }
-      std::printf("%+20.6f%+20.6f%+20.6f %10.2f", state[0]*1e-3, state[1]*1e-3, state[2]*1e-3, delta_sec);
+      std::printf("%+20.6f%+20.6f%+20.6f%+20.8f", state[0]*1e-3, state[1]*1e-3, state[2]*1e-3, dt*1e6);
       cur_dt_utc+=intrvl;
     } else if (delta_sec<=-15*60e0) { // ti > tb && ti - tb > 15min
       if (read_next_glo_frame(nav, PRN, block)) return 5;

@@ -459,9 +459,10 @@ const noexcept
 }
 
 int
-NavDataFrame::glo_dtsv(double t_tm, double toe_tm, double& dtsv)
+NavDataFrame::glo_dtsv(double t_mt, double toe_mt, double& dtsv)
 const noexcept
 {
-  double deltat = t_mt - toe - std::round((t_mt-toe)/86400e0)*86400e0;
-  double dtsv = data__[0] + data__[1]*deltat;
+  double deltat = t_mt - toe_mt - std::round((t_mt-toe_mt)/86400e0)*86400e0;
+  dtsv = data__[0] + data__[1]*deltat;
+  return 0;
 }

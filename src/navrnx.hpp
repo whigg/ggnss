@@ -78,6 +78,9 @@ public:
   
   int
   gps_dtsv(double dt, double& dt_sv) const noexcept;
+
+  int
+  glo_dtsv(double t_tm, double toe_tm, double& dtsv) const noexcept;
   
   template<typename T>
     int
@@ -115,14 +118,16 @@ public:
     }
     return this->glo_ecef(sec, tb_sec, state);
   }
+
   template<typename T>
     int
     glo_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
     const noexcept
   {
     int status = 0;
+    constexpr seconds secmt (10800L);
     // t_i and t_b to MT
-    t.add_seconds(ngpt::seconds(10800L));
+    t.add_seconds(secmt);
     ngpt::datetime<seconds> tb = glo_tb2date(true);
     double sec = t.sec().to_fractional_seconds();
     double tb_sec = tb.sec().to_fractional_seconds();
@@ -138,7 +143,7 @@ public:
     // t_i and t_c to MT
     sec = t.sec().to_fractional_seconds();
     auto tc = toc__;
-    tc.add_seconds(10800);
+    tc.add_seconds(secmt);
     double tc_sec = tc.sec().to_fractional_seconds();
     // reference ti and tc to the same day (it may happen? that ti and tc are
     // in different days)
