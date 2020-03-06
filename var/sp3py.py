@@ -141,4 +141,4 @@ class Sp3:
 if __name__ == "__main__":
   #sp3 = Sp3("../data/COD0MGXFIN_20200010000_01D_05M_ORB.SP3")
   sp3 = Sp3("../data/COD20820.EPH_M")
-  sp3.read_satellite_records("R03")
+  sp3.read_satellite_records("R13")

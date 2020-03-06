@@ -361,8 +361,8 @@ const noexcept
     ti += h;
   }
   if (max_it>=1500) {
-    std::cerr<<"\n[ERROR] h="<<h<<", from "<<tb_sec<<" to "
-      <<t_lim<<" last t="<<ti;
+    std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() h="<<h<<", from "
+      <<tb_sec<<" to "<<t_lim<<" last t="<<ti;
     return 10;
   }
 

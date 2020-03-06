@@ -11,6 +11,7 @@ using ngpt::gps_week;
 
 bool utc2gps = true;
 bool pz902wgs = false;
+int  PRN=1;
 
 int
 read_next_glo_frame(NavigationRnx& nav, int prn, NavDataFrame& block)
@@ -41,26 +42,28 @@ read_next_glo_frame(NavigationRnx& nav, int prn, NavDataFrame& block)
 
 int main(int argc, char* argv[])
 {
-  if (argc != 2) {
-    std::cerr<<"\n[ERROR] Run as: $>testNavRnx [Nav. RINEX]\n";
+  if (argc!=2 && argc!=3) {
+    std::cerr<<"\n[ERROR] Run as: $>testNavRnx <Nav. RINEX> [PRN] ("<<argc<<")\n";
     return 1;
   }
+  if (argc==3) PRN = std::atoi(argv[2]);
 
   NavigationRnx nav(argv[1]);
   NavDataFrame  block;
-  int j = 0, block_nr = 0;
+  int j = 0, block_nr = 0, block_prn_nr=0;
   while (!j) {
     j = nav.read_next_record(block);
     block_nr++;
+    if (block.prn()==PRN && block.satsys()==SATELLITE_SYSTEM::glonass) ++block_prn_nr;
   }
-  std::cout<<"\nRead "<<block_nr<<" data blocks";
-  std::cout<<"\nLast status was: "<<j;
+  std::cout<<"\n# Read "<<block_nr<<" data blocks";
+  std::cout<<"\n# Last status was: "<<j;
+  std::cout<<"\n# Navigation frames for PRN"<<PRN<<": "<<block_prn_nr;
 
   // rewind to end of header; read only GLONASS
   // compute ECEF coordinates for every 15 min for GLO/PRN=3
   j=0;
   nav.rewind();
-  int PRN=3;
   // read first frame of GLO/PRN=3
   int frame_read=0;
   while (!frame_read) {
@@ -82,7 +85,7 @@ int main(int argc, char* argv[])
     std::cerr<<"\n[ERROR] Failed to find nav block for PRN="<<PRN;
     return 6;
   }
-  std::cout<<"\nFrame read for PRN="<<PRN<<"; going on ...";
+  std::cout<<"\n# First frame read for PRN="<<PRN<<"; going on ...";
   // set starting time
   ngpt::datetime<seconds> cur_dt_utc = block.toc();
   cur_dt_utc.remove_seconds(seconds(10800L));

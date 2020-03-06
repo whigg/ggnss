@@ -180,8 +180,12 @@ public:
 
   ngpt::datetime<ngpt::seconds>
   toc() const noexcept { return toc__; }
+
   void
   set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}
+
+  SATELLITE_SYSTEM
+  satsys() const noexcept {return sys__;}
   
 private:
   SATELLITE_SYSTEM              sys__{};     ///< Satellite system
