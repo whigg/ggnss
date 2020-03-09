@@ -141,6 +141,7 @@ public:
     if ( (status=glo_ecef(sec, tb_sec, state)) ) return status;
 
     // t_i and t_c to MT
+    /*
     sec = t.sec().to_fractional_seconds();
     auto tc = toc__;
     tc.add_seconds(secmt);
@@ -152,7 +153,8 @@ public:
     } else if (t.mjd()<tc.mjd()) {
       sec = sec - 86400e0;
     }
-    if ( (status=glo_dtsv(sec, tc_sec, dt)) ) return status;
+    */
+    if ( (status=glo_dtsv(sec, tb_sec, dt)) ) return status;
     return 0;
   }
   

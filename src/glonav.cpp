@@ -343,7 +343,8 @@ const noexcept
   int    max_it=0;
   std::copy(x, x+6, yti);
   // Perform Runge-Kutta 4th 
-  while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
+  // while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
+  while ( h>0?ti<t_lim:ti>t_lim && ++max_it<1500) {
     // compute k1
     glo_state_deriv(yti, acc, k1);
     // compute k2

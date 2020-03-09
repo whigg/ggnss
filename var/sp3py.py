@@ -138,7 +138,11 @@ class Sp3:
     except:
       raise RuntimeError("[ERROR] Failed to resolve position line")
 
+import sys
 if __name__ == "__main__":
   #sp3 = Sp3("../data/COD0MGXFIN_20200010000_01D_05M_ORB.SP3")
+  prn="R01"
+  if len(sys.argv) > 1 : prn="R"+('{:02d}'.format(int(sys.argv[1])))
+  print("## Resolving satellite with PRN: {:}".format(prn))
   sp3 = Sp3("../data/COD20820.EPH_M")
-  sp3.read_satellite_records("R13")
+  sp3.read_satellite_records(prn)
