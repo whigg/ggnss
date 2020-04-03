@@ -24,10 +24,10 @@ int main()
   frame.set_toc(ngpt::datetime<seconds>(ngpt::year(2012), ngpt::month(9),
     ngpt::day_of_month(7), seconds(11700L)));
 
-  double state[6];
+  double state[6], clock;
   ngpt::datetime<seconds> ti = ngpt::datetime<seconds>(ngpt::year(2012), ngpt::month(9),
     ngpt::day_of_month(7), seconds(12300L));
-  frame.glo_ecef<seconds>(ti, state);
+  frame.glo_stateNclock<seconds>(ti, state, clock);
   printf("\n x=%+20.5f  y=%+20.5f  z=%+20.5f meters", state[0], state[1], state[2]);
   printf("\nVx=%+20.5f Vy=%+20.5f Vz=%+20.5f meters/sec", state[3], state[4], state[5]);
   printf("\nDx=%20.5f  Dy=%20.5f  Dz=%20.5f  meters", std::abs(state[0]-7523174.853), 

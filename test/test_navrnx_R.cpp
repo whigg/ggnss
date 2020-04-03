@@ -7,6 +7,7 @@ using ngpt::NavigationRnx;
 using ngpt::NavDataFrame;
 using ngpt::SATELLITE_SYSTEM;
 using ngpt::seconds;
+using ngpt::milliseconds;
 using ngpt::gps_week;
 
 bool utc2gps = true;
@@ -87,33 +88,33 @@ int main(int argc, char* argv[])
   }
   std::cout<<"\n# First frame read for PRN="<<PRN<<"; going on ...";
   // set starting time
-  ngpt::datetime<seconds> cur_dt_utc = block.toc();
+  ngpt::datetime<milliseconds> cur_dt_utc = block.toc<milliseconds>();
   cur_dt_utc.remove_seconds(seconds(10800L));
-  ngpt::datetime<seconds> utc_limit = block.toc();
+  ngpt::datetime<milliseconds> utc_limit = block.toc<milliseconds>();
   utc_limit.add_seconds(seconds(86400));
-  ngpt::datetime_interval<seconds> intrvl (ngpt::modified_julian_day(0), seconds(1*60L));
+  ngpt::datetime_interval<milliseconds> intrvl (ngpt::modified_julian_day(0), milliseconds(1*60L*1000L+1));
   double state[6];
   double dt;
   int it = 0;
   // compute x,y,z for one day, every 15 min
   while (cur_dt_utc<=utc_limit && ++it<1500) {
-    auto tb = block.glo_tb2date(false); // tb in UTC
+    auto tb = block.glo_tb2date<milliseconds>(false); // tb in UTC
     auto sec_diff = delta_sec(tb, cur_dt_utc);
     double delta_sec = sec_diff.to_fractional_seconds(); // tb - ti
     if (std::abs(delta_sec)<15*60e0) {
       if ((j=block.glo_stateNclock(cur_dt_utc, state, dt))) {
-        std::cerr<<"\n[ERROR] Failed to compute orbit for "<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)<<" UTC";
-        std::cerr<<"\n        tb date is                  "<<ngpt::strftime_ymd_hms<seconds>(tb)<<" UTC";
+        std::cerr<<"\n[ERROR] Failed to compute orbit for "<<ngpt::strftime_ymd_hms<milliseconds>(cur_dt_utc)<<" UTC";
+        std::cerr<<"\n        tb date is                  "<<ngpt::strftime_ymd_hms<milliseconds>(tb)<<" UTC";
         std::cerr<<"\n        Time difference (in sec)    "<<delta_sec<<", error_code: "<<j<<"\n";
         return 10;
       }
       if (utc2gps) {
         int leap = ngpt::dat(cur_dt_utc);
         auto cur_dt_gps = cur_dt_utc;
-        cur_dt_gps.add_seconds(ngpt::seconds(leap-19L));
-        std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt_gps)<<"\" ";
+        cur_dt_gps.add_seconds(seconds(leap-19L));
+        std::cout<<"\n\""<<ngpt::strftime_ymd_hms<milliseconds>(cur_dt_gps)<<"\" ";
       } else {
-        std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc)<<"\" ";
+        std::cout<<"\n\""<<ngpt::strftime_ymd_hms<milliseconds>(cur_dt_utc)<<"\" ";
       }
       if (pz902wgs) {
         double xwgs[3];
@@ -128,8 +129,8 @@ int main(int argc, char* argv[])
       cur_dt_utc+=intrvl;
     } else {
       std::cerr<<"\n[ERROR] Unexpected date error!";
-      std::cerr<<"\n        Caused at "<<ngpt::strftime_ymd_hms<seconds>(block.toc())
-        <<" "<<ngpt::strftime_ymd_hms<seconds>(cur_dt_utc);
+      std::cerr<<"\n        Caused at "<<ngpt::strftime_ymd_hms<milliseconds>(block.toc<milliseconds>())
+        <<" "<<ngpt::strftime_ymd_hms<milliseconds>(cur_dt_utc);
       return 5;
     }
   }

@@ -58,34 +58,39 @@ constexpr double F_CLOCK {-4.442807633e-10};
 /// 
 /// Compute the ECEF coordinates of position for the phase center of the SVs' 
 /// antennas. The time parameter should be given in GPS Time
-/// @param[in] gps_week The GPS Week of the epoch to compute SV coordinates (in
-///            GPS Time Scale)
-/// @param[in] t Seconds of GPS Week of the epoch to compute SV coordinates (in
-///            GPS Time Scale)
-/// @param[out] x SV x-component antenna phase center position in the WGS84 ECEF 
-///             coordinate system in meters
-/// @param[out] y SV y-component antenna phase center position in the WGS84 ECEF 
-///             coordinate system in meters
-/// @param[out] z SV z-component antenna phase center position in the WGS84 ECEF 
-///             coordinate system in meters
+/// @param[in]  toe_sec  Time of Ephemeris as seconds in day
+/// @param[in]  t_sec    Epoch as seconds in day
+/// @param[out] state    SV x,y,z -components of antenna phase center position
+///                      in the WGS84 ECEF coordinate system in meters; the 
+///                      state array must have length >=3
+/// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the 
+///                      value of the computed Ek aka Eccentric Anomaly
 /// @return Anything other than 0 denotes an error
+///
+/// @note Input parameters toe_sec and t_sec should be referenced to the same
+///       start (aka start of day) at the same time-scale
 ///
 /// @see IS-GPS-200H, User Algorithm for Ephemeris Determination
 int
-NavDataFrame::gps_ecef(int gps_week, double t, double& x, double& y, double& z)
+NavDataFrame::gps_ecef(double toe_sec, double t_sec, double* state, 
+  double* Ek_ptr)
 const noexcept
 {
-#ifdef DEBUG
-  assert(gps_week<=(int)data__[21]+1 && gps_week>=(int)data__[21]-1);
-#endif
+  int status = 0;
   constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
                                          //+ the Kepler equation for the 
                                          //+ eccentricity anomaly
   double A  (data__[10]*data__[10]);     //  Semi-major axis
   double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
-  double tk (t-data__[11]);              //  Time from ephemeris reference epoch
-  if (tk>302400e0) tk -= 604800e0;
-  if (tk<302400e0) tk += 604800e0;
+  double tk (t_sec-toe_sec);
+#ifdef DEBUG
+  if (tk<-302400e0 || tk>302400e0) {
+    std::cerr<<"\n[ERROR] NavDataFrame::gps_ecef Delta-seconds are off! WTF?";
+    return -1;
+  }
+  if (tk> 302400e0) tk -= 604800e0;
+  if (tk<-302400e0) tk += 604800e0;
+#endif
   double n  (n0+data__[5]);              //  Corrected mean motion
   double Mk (data__[6]+n*tk);            //  Mean anomaly
 
@@ -100,6 +105,8 @@ const noexcept
   }
   if (i>=1000) return 1;
   Ek = E;
+
+  if (Ek_ptr) *Ek_ptr = Ek;
 
   double sinE    (std::sin(E));
   double cosE    (std::cos(E));
@@ -134,10 +141,12 @@ const noexcept
   double cosOk   (std::cos(omega_k));
   double cosik   (std::cos(ik));
   
-  x = xk_dot*cosOk - yk_dot*sinOk*cosik;
-  y = xk_dot*sinOk + yk_dot*cosOk*cosik;
-  z = yk_dot*std::sin(ik);
-  return 0;
+  state[0] = xk_dot*cosOk - yk_dot*sinOk*cosik;
+  state[1] = xk_dot*sinOk + yk_dot*cosOk*cosik;
+  state[2] = yk_dot*std::sin(ik);
+
+  // all done
+  return status;
 }
 
 /// @brief Compute SV Clock Correction
@@ -154,34 +163,52 @@ const noexcept
 /// (in seconds):
 /// t = t_sv - Δt_sv
 ///
-/// @param[in] t The difference t-t_oc in seconds
-/// @param[out] dt_sv SV Clock Correction in seconds
+/// @param[in]  t     The difference t-t_oc in seconds
+/// @param[out] dt_sv SV Clock Correction in seconds; satellite clock bias 
+///                   includes relativity correction without code bias (tgd or 
+///                   bgd)
+/// @param[in]  Ein   If provided, the value to use for Eccentric Anomaly (to
+///                   compute the relativistic error term). If not provided,
+///                   then Kepler's equation will be used to compute it. If a
+///                   user has already computed Ek (e.g. when computing SV
+///                   coordinates), then this value could be used here with
+///                   reduced accuracy
 /// @return Anything other than 0 denotes an error
 int
-NavDataFrame::gps_dtsv(double dt, double& dt_sv)
+NavDataFrame::gps_dtsv(double dt, double& dt_sv, double* Ein)
 const noexcept
 {
   constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
                                          //+ the Kepler equation for the 
                                          //+ eccentricity anomaly
-  if (dt>302400e0) dt -= 604800e0;
-  if (dt<302400e0) dt += 604800e0;
-
-  // Solve (iteratively) Kepler's equation for Ek
-  double A  (data__[10]*data__[10]);     //  Semi-major axis
-  double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
-  double n  (n0+data__[5]);              //  Corrected mean motion
-  double Mk (data__[6]+n*dt);            //  Mean anomaly
-  double E  (Mk);
-  double Ek (0e0);
-  double e  (data__[8]);
-  int i;
-  for (i=0; std::abs(E-Ek)>LIMIT && i<1001; i++) {
-    Ek = E;
-    E = std::sin(Ek)*e+Mk;
+#ifdef DEBUG
+  if (dt<-302400e0 || dt>302400e0) {
+    std::cerr<<"\n[ERROR] NavDataFrame::gps_dtsv Delta-seconds are off! WTF?";
+    return -1;
   }
-  if (i>=1000) return 1;
-  Ek = E;
+  if (dt> 302400e0) dt -= 604800e0;
+  if (dt<-302400e0) dt += 604800e0;
+#endif
+
+  double Ek (0e0);
+  if (!Ein) {
+    // Solve (iteratively) Kepler's equation for Ek
+    double A  (data__[10]*data__[10]);     //  Semi-major axis
+    double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
+    double n  (n0+data__[5]);              //  Corrected mean motion
+    double Mk (data__[6]+n*dt);            //  Mean anomaly
+    double E  (Mk);
+    double e  (data__[8]);
+    int i;
+    for (i=0; std::abs(E-Ek)>LIMIT && i<1001; i++) {
+      Ek = E;
+      E = std::sin(Ek)*e+Mk;
+    }
+    if (i>=1000) return 1;
+    Ek = E;
+  } else {
+    Ek = *Ein;
+  }
 
   // Compute Δtr relativistic correction term (seconds)
   const double Dtr = F_CLOCK * (data__[8]*data__[10]*std::sin(Ek));

@@ -62,63 +62,107 @@ public:
   /// @brief get SV coordinates (WGS84) from navigation block
   /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   int
-  gps_ecef(int gps_week, double t_insow, double& x, double& y, double& z)
+  gps_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
+
+  /// @brief GPS time of ephemeris to datetime<T> instance
+  ///
+  /// Transform Time_of_Ephemeris from gps_week and sec of gps week to a valid
+  /// datetime<T> instance.
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+    gps__toe2date() const noexcept
+  {
+    ngpt::gps_week wk (static_cast<int>(data__[21]));
+    ngpt::seconds  sc (static_cast<long>(data__[11]));
+    return ngpt::datetime<T>(wk, sc);
+  }
   
-  ngpt::datetime<seconds>
-  glo_tb2date(bool to_MT) const noexcept;
+  /// @brief Time of ephemeris as datetime<T> instance in UTC or MT
+  ///
+  /// Transform the message frame time of the NavDataFrame instance to a
+  /// datetime<seconds> instance. The message frame time is given as:
+  /// data__[2]  : Message frame time(tk+nd*86400) in seconds of UTC week
+  /// in RINEX v3.x This function will transform this to a datetime.
+  ///
+  /// The message frame time is given as seconds of UTC week, hence the function
+  /// will use TimeOfClock (ToC) to resolve this to a date. The 
+  /// pseudoalgorithm is something like:
+  /// 1. resolve ToC to Week (ToC_wk) and DayOfWeek (ToC_dw)
+  /// 2. resolve message frame time (Tb) to DayOfWeek (Tb_dw) and SecondsOfWeek
+  ///    (Tb_sw)
+  /// 3. resulting date is ToC.MJD - (ToC_dw - Tb_dw) and time Tb_sw
+  /// 
+  /// @param[in] to_MT If set to true, then the resulting datetime instance will
+  ///                  be in Moscow UTC time, aka MT; if set to false then the
+  ///                  resulting date will be in UTC.
+  /// @result message frame time as datetime<seconds> instance in UTC or MT
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+    glo_tb2date(bool to_MT) const noexcept
+  {
+    using ngpt::modified_julian_day;
+    using ngpt::seconds;
+    // transform ToC to day_of_week
+    auto toc = this->toc__;
+    if (to_MT) toc.add_seconds(seconds(10800L));
+    long sow; 
+    toc.as_gps_wsow(sow);
+    int dow_toc = sow / 86400L; // day of week of toc
+    // transform message frame time (tb) to day of week and seconds of day
+    long sow_tb = ((to_MT)?
+      (static_cast<long>(data__[2])+10800L):
+      (static_cast<long>(data__[2])));
+    int  dow_tb = sow_tb / 86400L;
+    long sod_tb = sow_tb % 86400L;
+    // return the date adding any days offset
+    int  offset = dow_toc - dow_tb;
+    return ngpt::datetime<T>(toc.mjd()-modified_julian_day(offset), 
+      ngpt::cast_to<seconds, T>(seconds(sod_tb)));
+  }
 
   int
   glo_ecef(double t_insod, double tb_sod, double* state)
   const noexcept;
-
-  int
-  glo_ecef2(double t_insod, double tb_sod, double& x, double& y, double& z, double* vel=nullptr)
-  const noexcept;
   
   int
-  gps_dtsv(double dt, double& dt_sv) const noexcept;
-
+  gps_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
+  
   int
   glo_dtsv(double t_tm, double toe_tm, double& dtsv) const noexcept;
   
   template<typename T>
     int
-    gps_ecef(const ngpt::datetime<T>& epoch, double& x, double& y, double& z)
+    gps_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
     const noexcept
   {
-    ngpt::gps_week wk;
-    long isow;
-    wk = epoch.as_gps_wsow(isow);
-    int iwk = wk.as_underlying_type();
-    double sec = static_cast<double>(isow);
-    return this->gps_ecef(iwk, sec, x, y, z);
+    int status = 0;
+    // reference time for SV position computation, is ToE
+    datetime<T> toe (this->gps__toe2date<T>());
+    double toe_sec = toe.sec().to_fractional_seconds();
+    double t_sec   = t.sec().to_fractional_seconds();
+    // reference t to ToE
+    if (t.mjd()>toe.mjd()) {
+      t_sec += 86400e0;
+    } else if (t.mjd()<toe.mjd()) {
+      t_sec = t_sec - 86400e0;
+    }
+    if ((status=gps_ecef(toe_sec, t_sec, state))) return status;
+    // dt from ToC
+    auto   dt_ = ngpt::delta_sec(t, toc__);
+    double dti = dt_.to_fractional_seconds();
+    status=gps_dtsv(dti, dt);
+    return status;
   }
   
   /// @brief Compute SV centre of mass state vector in ECEF PZ90 frame at
   ///        epoch epoch using the simplified algorithm
   /// @param[in] epoch The time in UTC for which we want the SV state
   /// @param[out] The SV centre of mass state vector in meters, meters/sec
-  template<typename T>
-    int
-    glo_ecef(ngpt::datetime<T> epoch, double* state)
-    const noexcept
-  {
-    // t_i and t_b to MT
-    epoch.add_seconds(ngpt::seconds(10800L));
-    ngpt::datetime<seconds> tb = glo_tb2date(true);
-    double sec = epoch.sec().to_fractional_seconds();
-    double tb_sec = tb.sec().to_fractional_seconds();
-    // reference ti and tb to the same day (it may happen? that ti and tb are
-    // in different days)
-    if (epoch.mjd()>tb.mjd()) {
-      sec += 86400e0;
-    } else if (epoch.mjd()<tb.mjd()) {
-      sec = sec - 86400e0;
-    }
-    return this->glo_ecef(sec, tb_sec, state);
-  }
-
   template<typename T>
     int
     glo_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
@@ -128,7 +172,7 @@ public:
     constexpr seconds secmt (10800L);
     // t_i and t_b to MT
     t.add_seconds(secmt);
-    ngpt::datetime<seconds> tb = glo_tb2date(true);
+    ngpt::datetime<T> tb = this->glo_tb2date<T>(true);
     double sec = t.sec().to_fractional_seconds();
     double tb_sec = tb.sec().to_fractional_seconds();
     // reference ti and tb to the same day (it may happen? that ti and tb are
@@ -139,21 +183,6 @@ public:
       sec = sec - 86400e0;
     }
     if ( (status=glo_ecef(sec, tb_sec, state)) ) return status;
-
-    // t_i and t_c to MT
-    /*
-    sec = t.sec().to_fractional_seconds();
-    auto tc = toc__;
-    tc.add_seconds(secmt);
-    double tc_sec = tc.sec().to_fractional_seconds();
-    // reference ti and tc to the same day (it may happen? that ti and tc are
-    // in different days)
-    if (t.mjd()>tc.mjd()) {
-      sec += 86400e0;
-    } else if (t.mjd()<tc.mjd()) {
-      sec = sec - 86400e0;
-    }
-    */
     if ( (status=glo_dtsv(sec, tb_sec, dt)) ) return status;
     return 0;
   }
@@ -182,6 +211,12 @@ public:
 
   ngpt::datetime<ngpt::seconds>
   toc() const noexcept { return toc__; }
+
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+  toc() const noexcept { return toc__.cast_to<T>(); }
 
   void
   set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}

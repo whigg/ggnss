@@ -57,45 +57,13 @@ constexpr double J2_GLO = 1082625.75e-9;
 // mean angular velocity of the Earth relative to vernal equinox
 constexpr double OMEGA_GLO = 7.2921151467e-5; // rad/s
 
-/// @brief Time of ephemeris as datetime<seconds> instance in UTC or MT
-///
-/// Transform the message frame time of the NavDataFrame instance to a
-/// datetime<seconds> instance. The message frame time is given as:
-/// data__[2]  : Message frame time(tk+nd*86400) in seconds of UTC week
-/// in RINEX v3.x This function will transform this to a datetime.
-///
-/// The message frame time is given as seconds of UTC week, hence the function
-/// will use TimeOfClock (ToC) to resolve this to a date. The 
-/// pseudoalgorithm is something like:
-/// 1. resolve ToC to Week (ToC_wk) and DayOfWeek (ToC_dw)
-/// 2. resolve message frame time (Tb) to DayOfWeek (Tb_dw) and SecondsOfWeek
-///    (Tb_sw)
-/// 3. resulting date is ToC.MJD - (ToC_dw - Tb_dw) and time Tb_sw
-/// 
-/// @param[in] to_MT If set to true, then the resulting datetime instance will
-///                  be in Moscow UTC time, aka MT; if set to false then the
-///                  resulting date will be in UTC.
-/// @result message frame time as datetime<seconds> instance in UTC or MT
-ngpt::datetime<ngpt::seconds>
-NavDataFrame::glo_tb2date(bool to_MT) const noexcept
+int
+NavDataFrame::glo_dtsv(double t_mt, double toe_mt, double& dtsv)
+const noexcept
 {
-  // transform ToC to day_of_week
-  auto toc = this->toc__;
-  if (to_MT) toc.add_seconds(ngpt::seconds(10800L));
-  long sow; 
-  toc.as_gps_wsow(sow);
-  int dow_toc = sow / 86400L; // day of week of toc
-  // transform message frame time (tb) to day of week and seconds of day
-  long sow_tb = ((to_MT)?
-    (static_cast<long>(data__[2])+10800L):
-    (static_cast<long>(data__[2])));
-  int  dow_tb = sow_tb / 86400L;
-  long sod_tb = sow_tb % 86400L;
-  // return the date adding any days offset
-  int  offset = dow_toc - dow_tb;
-  ngpt::datetime<ngpt::seconds> tbdate(toc.mjd()-ngpt::modified_julian_day(offset), 
-    ngpt::seconds(sod_tb));
-  return tbdate;
+  double deltat = t_mt - toe_mt - std::round((t_mt-toe_mt)/86400e0)*86400e0;
+  dtsv = data__[0] + data__[1]*deltat;
+  return 0;
 }
 
 /// Compute Greenwich Mean Sidereal Time given a Julian Date
@@ -104,6 +72,7 @@ NavDataFrame::glo_tb2date(bool to_MT) const noexcept
 /// @return Greenwich Mean Sidereal Time (GMST) for given Julian Date
 /// @cite GLONASS-ICD, Appendix K, "Algorithm for calculation of the current 
 ///       Julian date JD0, Gregorian date, and GMST"
+/*
 double
 __gmst__(double jd0) noexcept
 {
@@ -121,6 +90,7 @@ __gmst__(double jd0) noexcept
                             *td) *td) *td) *td) *td;
   return gmst;
 }
+*/
 
 /// This is the computation of the system of ODE's described in J.2.1 in 
 /// GLONASS ICD, par. J2 "Simplified algorithm for determination of position 
@@ -186,6 +156,7 @@ noexcept
 ///             the computed ODE system
 /// 
 /// @warning All units are in meters, meters/sec and meters2/sec
+/*
 void
 glo_state_deriv_inertial(const double *x, const double* acc, double *xdot)
 noexcept
@@ -208,6 +179,7 @@ noexcept
   
   return;
 }
+*/
 
 /// @brief Transform ECEF (PZ90) coordinates to inertial
 ///
@@ -222,6 +194,7 @@ noexcept
 /// @param[out] acc         Array of size 3; at input acceleration components
 ///                         in ECEF frame; at output acceleration components
 ///                         transformed to inertial frame
+/*
 void
 glo_ecef2inertial(const double *x_ecef, ngpt::datetime<ngpt::seconds> tb_MT, 
   double *x_inertial, double *acc=nullptr)
@@ -250,6 +223,7 @@ noexcept
 
   return;
 }
+*/
 
 /// @brief Transform inertial coordinates to ECEF (PZ90)
 ///
@@ -264,6 +238,7 @@ noexcept
 /// @param[out] acc         Array of size 3; at input acceleration components
 ///                         in inertial frame; at output acceleration components
 ///                         transformed to ECEF frame
+/*
 void
 glo_inertial2ecef(const double *x_inertial, ngpt::datetime<ngpt::seconds> ti_MT, 
   double *x_ecef)
@@ -285,6 +260,7 @@ noexcept
 
   return;
 }
+*/
 
 /// @brief Compute SV coordinates from navigation block
 /// 
@@ -373,8 +349,10 @@ const noexcept
   return status;
 }
 
+/*
 int
-NavDataFrame::glo_ecef2(double t_sod, double tb_sec, double& xs, double& ys, double& zs, double* vel)
+NavDataFrame::glo_ecef2(double t_sod, double tb_sec, double& xs, d
+  ouble& ys, double& zs, double* vel)
 const noexcept
 {
   double x[6], acc[3];
@@ -458,12 +436,4 @@ const noexcept
 
   return 0;
 }
-
-int
-NavDataFrame::glo_dtsv(double t_mt, double toe_mt, double& dtsv)
-const noexcept
-{
-  double deltat = t_mt - toe_mt - std::round((t_mt-toe_mt)/86400e0)*86400e0;
-  dtsv = data__[0] + data__[1]*deltat;
-  return 0;
-}
+*/
