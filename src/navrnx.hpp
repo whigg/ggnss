@@ -64,6 +64,11 @@ public:
   int
   gps_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
+  /// @brief get SV coordinates (WGS84) from navigation block
+  /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
+  int
+  gal_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
+  const noexcept;
 
   /// @brief GPS time of ephemeris to datetime<T> instance
   ///
@@ -74,6 +79,27 @@ public:
     >
     ngpt::datetime<T>
     gps__toe2date() const noexcept
+  {
+    ngpt::gps_week wk (static_cast<int>(data__[21]));
+    ngpt::seconds  sc (static_cast<long>(data__[11]));
+    return ngpt::datetime<T>(wk, sc);
+  }
+  
+  /// @brief GST time of ephemeris to datetime<T> instance
+  ///
+  /// Transform Time_of_Ephemeris from gst_week and sec of GST week to a valid
+  /// datetime<T> instance.
+  /// 
+  /// @warning In RINEX v3.x, GAL Week number is actually GPS Week! In the
+  ///          RINEX specifications, it is noted that:
+  ///          "The GAL week number is a continuous number, aligned to (and 
+  ///          hence identical to) the continuous GPS week number used in the 
+  ///          RINEX navigation message files."
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+    gal__toe2date() const noexcept
   {
     ngpt::gps_week wk (static_cast<int>(data__[21]));
     ngpt::seconds  sc (static_cast<long>(data__[11]));
@@ -133,6 +159,9 @@ public:
   gps_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
   
   int
+  gal_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
+  
+  int
   glo_dtsv(double t_tm, double toe_tm, double& dtsv) const noexcept;
   
   template<typename T>
@@ -156,6 +185,30 @@ public:
     auto   dt_ = ngpt::delta_sec(t, toc__);
     double dti = dt_.to_fractional_seconds();
     status=gps_dtsv(dti, dt);
+    return status;
+  }
+  
+  template<typename T>
+    int
+    gal_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
+    const noexcept
+  {
+    int status = 0;
+    // reference time for SV position computation, is ToE
+    datetime<T> toe (this->gal__toe2date<T>());
+    double toe_sec = toe.sec().to_fractional_seconds();
+    double t_sec   = t.sec().to_fractional_seconds();
+    // reference t to ToE
+    if (t.mjd()>toe.mjd()) {
+      t_sec += 86400e0;
+    } else if (t.mjd()<toe.mjd()) {
+      t_sec = t_sec - 86400e0;
+    }
+    if ((status=gal_ecef(toe_sec, t_sec, state))) return status;
+    // dt from ToC
+    auto   dt_ = ngpt::delta_sec(t, toc__);
+    double dti = dt_.to_fractional_seconds();
+    status=gal_dtsv(dti, dt);
     return status;
   }
   

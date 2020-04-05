@@ -36,4 +36,5 @@ dist_libgnss_la_SOURCES = \
 	antex.cpp \
         navrnx.cpp \
 	gpsnav.cpp \
+	galnav.cpp \
 	glonav.cpp

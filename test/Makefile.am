@@ -5,6 +5,7 @@ noinst_PROGRAMS = \
                 testBernSatellit.out \
                 testNavRnxG.out \
                 testNavRnxR.out \
+                testNavRnxE.out \
                 testGloNavJ12.out
 
 MCXXFLAGS = \
@@ -45,6 +46,10 @@ testNavRnxG_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 testNavRnxR_out_SOURCES   = test_navrnx_R.cpp
 testNavRnxR_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
 testNavRnxR_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
+
+testNavRnxE_out_SOURCES   = test_navrnx_E.cpp
+testNavRnxE_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
+testNavRnxE_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 
 testGloNavJ12_out_SOURCES   = testGloNavJ12.cpp
 testGloNavJ12_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 

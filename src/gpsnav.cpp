@@ -80,8 +80,8 @@ const noexcept
   constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
                                          //+ the Kepler equation for the 
                                          //+ eccentricity anomaly
-  double A  (data__[10]*data__[10]);     //  Semi-major axis
-  double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
+  const double A  (data__[10]*data__[10]);     //  Semi-major axis
+  const double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
   double tk (t_sec-toe_sec);
 #ifdef DEBUG
   if (tk<-302400e0 || tk>302400e0) {
@@ -91,13 +91,13 @@ const noexcept
   if (tk> 302400e0) tk -= 604800e0;
   if (tk<-302400e0) tk += 604800e0;
 #endif
-  double n  (n0+data__[5]);              //  Corrected mean motion
-  double Mk (data__[6]+n*tk);            //  Mean anomaly
+  const double n  (n0+data__[5]);              //  Corrected mean motion
+  const double Mk (data__[6]+n*tk);            //  Mean anomaly
 
   // Solve (iteratively) Kepler's equation for Ek
   double E  (Mk);
   double Ek (0e0);
-  double e  (data__[8]);
+  const double e  (data__[8]);
   int i;
   for (i=0; std::abs(E-Ek)>LIMIT && i<1001; i++) {
     Ek = E;
@@ -108,38 +108,38 @@ const noexcept
 
   if (Ek_ptr) *Ek_ptr = Ek;
 
-  double sinE    (std::sin(E));
-  double cosE    (std::cos(E));
-  double ecosEm1 (1e0-e*cosE);
-  double vk_ar   ((std::sqrt(1e0-e*e)*sinE)/ecosEm1);
-  double vk_pr   ((cosE-e)/ecosEm1);
-  double vk      (std::atan2(vk_ar, vk_pr));            // True Anomaly
-  double cosVk   (std::cos(vk));
-  Ek           = std::acos((e+cosVk)/(1e0+e*cosVk));    // Eccentric Anomaly
+  const double sinE    (std::sin(E));
+  const double cosE    (std::cos(E));
+  const double ecosEm1 (1e0-e*cosE);
+  const double vk_ar   ((std::sqrt(1e0-e*e)*sinE)/ecosEm1);
+  const double vk_pr   ((cosE-e)/ecosEm1);
+  const double vk      (std::atan2(vk_ar, vk_pr));            // True Anomaly
+  // const double cosVk   (std::cos(vk));
+  // Ek           = std::acos((e+cosVk)/(1e0+e*cosVk));    // Eccentric Anomaly
 
   // Second Harmonic Perturbations
-  double Fk      (vk+data__[17]);                       // Argument of Latitude
-  double sin2F   (std::sin(2e0*Fk));
-  double cos2F   (std::cos(2e0*Fk));
-  double duk     (data__[9]*sin2F  + data__[7]*cos2F);  // Argument of Latitude
+  const double Fk      (vk+data__[17]);                       // Argument of Latitude
+  const double sin2F   (std::sin(2e0*Fk));
+  const double cos2F   (std::cos(2e0*Fk));
+  const double duk     (data__[9]*sin2F  + data__[7]*cos2F);  // Argument of Latitude
                                                         //+ Correction
-  double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius Correction
-  double dik     (data__[14]*sin2F + data__[12]*cos2F); // Inclination Correction
+  const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius Correction
+  const double dik     (data__[14]*sin2F + data__[12]*cos2F); // Inclination Correction
 
-  double uk      (Fk + duk);                            // Corrected Argument 
+  const double uk      (Fk + duk);                            // Corrected Argument 
                                                         //+ of Latitude
-  double rk      (A*(1e0-e*std::cos(Ek))+drk);          // Corrected Radius
-  double ik      (data__[15]+dik+data__[19]*tk);        // Corrected Inclination
+  const double rk      (A*(1e0-e*std::cos(Ek))+drk);          // Corrected Radius
+  const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected Inclination
                                 
   // Positions in orbital plane
-  double xk_dot  (rk*std::cos(uk));
-  double yk_dot  (rk*std::sin(uk));
+  const double xk_dot  (rk*std::cos(uk));
+  const double yk_dot  (rk*std::sin(uk));
   
   // Corrected longitude of ascending node
-  double omega_k (data__[13]+(data__[18]-OMEGAE_dot)*tk-OMEGAE_dot*data__[11]);
-  double sinOk   (std::sin(omega_k));
-  double cosOk   (std::cos(omega_k));
-  double cosik   (std::cos(ik));
+  const double omega_k (data__[13]+(data__[18]-OMEGAE_dot)*tk-OMEGAE_dot*data__[11]);
+  const double sinOk   (std::sin(omega_k));
+  const double cosOk   (std::cos(omega_k));
+  const double cosik   (std::cos(ik));
   
   state[0] = xk_dot*cosOk - yk_dot*sinOk*cosik;
   state[1] = xk_dot*sinOk + yk_dot*cosOk*cosik;

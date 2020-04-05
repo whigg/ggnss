@@ -139,10 +139,33 @@ class Sp3:
       raise RuntimeError("[ERROR] Failed to resolve position line")
 
 import sys
+import argparse
+
 if __name__ == "__main__":
-  #sp3 = Sp3("../data/COD0MGXFIN_20200010000_01D_05M_ORB.SP3")
-  prn="R01"
-  if len(sys.argv) > 1 : prn="R"+('{:02d}'.format(int(sys.argv[1])))
-  print("## Resolving satellite with PRN: {:}".format(prn))
-  sp3 = Sp3("../data/COD20820.EPH_M")
-  sp3.read_satellite_records(prn)
+  parser = argparse.ArgumentParser(
+    description='Read and extract satellite poistion and clock error from an sp3 file'
+  )
+  parser.add_argument('-i', '--input',
+    required = True,
+    help     = 'Input sp3 file',
+    dest     = 'isp3',
+    metavar  = 'SP3[cd] FILE'
+  )
+  parser.add_argument('-s', '--svn',
+    required = True,
+    help     = 'Specify SV by satellite system and PRN, e.g. \'G9\' or \'R13\'',
+    dest     = 'sv',
+    metavar  = 'SATELLITE_STRING'
+  )
+  args = parser.parse_args()
+  if args.sv[0] not in ['G', 'R', 'E']:
+    print("[ERROR] Unrecognized satellite system in string: \'{:s}\'".format(args.sv))
+    sys.exit(1)
+  try :
+    num = int(args.sv[1:])
+    sat_str = args.sv[0] + "{:02d}".format(num)
+  except:
+    print("[ERROR] Satellite PRN must be an integer: \'{:s}\'".format(args.sv))
+    sys.exit(1)
+  sp3 = Sp3(args.isp3)
+  sp3.read_satellite_records(sat_str)

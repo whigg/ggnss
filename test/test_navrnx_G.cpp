@@ -7,6 +7,7 @@ using ngpt::NavigationRnx;
 using ngpt::NavDataFrame;
 using ngpt::SATELLITE_SYSTEM;
 using ngpt::seconds;
+using ngpt::milliseconds;
 using ngpt::gps_week;
 
 int  PRN=1;
@@ -27,7 +28,6 @@ int main(int argc, char* argv[])
     j = nav.read_next_record(block);
     block_nr++;
   }
-  assert(!j);
   std::cout<<"\n# Read "<<block_nr<<" data blocks";
   std::cout<<"\n# Last status was: "<<j;
 
