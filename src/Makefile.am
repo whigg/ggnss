@@ -16,6 +16,7 @@ libgnss_la_CXXFLAGS = \
 	-DDEBUG
 
 dist_include_HEADERS = \
+        nvarstr.hpp \
 	satsys.hpp \
 	satellite.hpp \
 	gnssobs.hpp \
@@ -24,9 +25,11 @@ dist_include_HEADERS = \
         bern_utils.hpp \
         antenna_pcv.hpp \
 	antex.hpp \
-        navrnx.hpp
+        navrnx.hpp \
+        obsrnx.hpp
 
 dist_libgnss_la_SOURCES = \
+        nvarstr.cpp \
 	satsys.cpp \
         gnssobs.cpp \
         gnssobsrv.cpp \
@@ -37,4 +40,6 @@ dist_libgnss_la_SOURCES = \
         navrnx.cpp \
 	gpsnav.cpp \
 	galnav.cpp \
-	glonav.cpp
+	glonav.cpp \
+        bdsnav.cpp \
+        obsrnx.cpp

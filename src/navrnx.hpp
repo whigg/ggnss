@@ -19,16 +19,6 @@ namespace ngpt
 ///             data__[x]  : Crs(meters)
 ///             data__[x]  : Delta n (radians/sec)
 ///             data__[x]  : M0 (radians)
-/// BeiDou:     data__[0]  : Time of Clock in BDT time
-///             data__[0]  : SV clock bias in seconds
-///             data__[1]  : SV clock drift in m/sec
-///             data__[2]  : SV clock drift rate in m/sec^2
-///             data__[x]  : AODE Age of Data, Ephemeris (as specified in 
-///                          BeiDou ICD Table Section 5.2.4.11 Table 5-8) and 
-///                          field range is: 0-31
-///             data__[x]  : Crs (meters)
-///             data__[x]  : Delta n (radians/sec)
-///             data__[x]  : M0 (radians) 
 /// SBAS:       data__[0]  : Time of Clock in GPS time 
 ///             data__[0]  : SV clock bias in sec, aka aGf0
 ///             data__[1]  : SV relative frequency bias, aka aGf1
@@ -69,6 +59,11 @@ public:
   int
   gal_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
+  /// @brief get SV coordinates (WGS84) from navigation block
+  /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
+  int
+  bds_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
+  const noexcept;
 
   /// @brief GPS time of ephemeris to datetime<T> instance
   ///
@@ -101,7 +96,21 @@ public:
     ngpt::datetime<T>
     gal__toe2date() const noexcept
   {
-    ngpt::gps_week wk (static_cast<int>(data__[21]));
+    return this->gps__toe2date<T>();
+  }
+
+  /// @brief BDS time of ephemeris to datetime<T> instance
+  ///
+  /// Transform Time_of_Ephemeris from gst_week and sec of BDS week to a valid
+  /// datetime<T> instance.
+  /// 
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+    bds__toe2date() const noexcept
+  {
+    ngpt::gps_week wk (static_cast<int>(data__[21])+1356L);
     ngpt::seconds  sc (static_cast<long>(data__[11]));
     return ngpt::datetime<T>(wk, sc);
   }
@@ -162,6 +171,9 @@ public:
   gal_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
   
   int
+  bds_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
+  
+  int
   glo_dtsv(double t_tm, double toe_tm, double& dtsv) const noexcept;
   
   template<typename T>
@@ -209,6 +221,30 @@ public:
     auto   dt_ = ngpt::delta_sec(t, toc__);
     double dti = dt_.to_fractional_seconds();
     status=gal_dtsv(dti, dt);
+    return status;
+  }
+  
+  template<typename T>
+    int
+    bds_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
+    const noexcept
+  {
+    int status = 0;
+    // reference time for SV position computation, is ToE
+    datetime<T> toe (this->bds__toe2date<T>());
+    double toe_sec = toe.sec().to_fractional_seconds();
+    double t_sec   = t.sec().to_fractional_seconds();
+    // reference t to ToE
+    if (t.mjd()>toe.mjd()) {
+      t_sec += 86400e0;
+    } else if (t.mjd()<toe.mjd()) {
+      t_sec = t_sec - 86400e0;
+    }
+    if ((status=bds_ecef(toe_sec, t_sec, state))) return status;
+    // dt from ToC
+    auto   dt_ = ngpt::delta_sec(t, toc__);
+    double dti = dt_.to_fractional_seconds();
+    status=bds_dtsv(dti, dt);
     return status;
   }
   

@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
   int frames_read=0;
   while (frames_read<2) {
     auto system = nav.peak_satsys(j);
-    if (system==SATELLITE_SYSTEM::galileo) {
+    if (system==SATELLITE_SYSTEM::beidou) {
       if (nav.read_next_record(block)) {
         std::cerr<<"\n[ERROR] Failed to resolve Data Frame";
         return 10;
@@ -68,9 +68,12 @@ int main(int argc, char* argv[])
   while (cur_dt<=cur_dt.add<seconds>(ngpt::modified_julian_day(1))) {
     if (cur_dt>=navar[0].toc() && cur_dt<navar[1].toc()) {
       // compute ecef with navar[0]
-      block.gal_stateNclock(cur_dt, state, dt);
+      block.bds_stateNclock(cur_dt, state, dt);
       std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt)<<"\" ";
       std::printf("%+15.6f%+15.6f%+15.6f %15.10f", state[0]*1e-3, state[1]*1e-3, state[2]*1e-3, dt*1e6);
+      /*std::cout<<"Time-> "<< ngpt::strftime_ymd_hms<seconds>(navar[0].toc())
+        <<" "<<ngpt::strftime_ymd_hms<seconds>(cur_dt)
+        <<" "<<ngpt::strftime_ymd_hms<seconds>(navar[1].toc());*/
     } else {
       std::cerr<<"\n[ERROR] Unexpected date error!";
       std::cerr<<"\n        Caused at "<<ngpt::strftime_ymd_hms<seconds>(navar[0].toc())
@@ -94,7 +97,7 @@ int main(int argc, char* argv[])
           std::cerr<<"\n[ERROR] While looking for next frame!";
           return j;
         }
-        if (system==SATELLITE_SYSTEM::galileo) {
+        if (system==SATELLITE_SYSTEM::beidou) {
           if (nav.read_next_record(block)) {
             std::cerr<<"\n[ERROR] Failed to resolve Data Frame";
             return 10;

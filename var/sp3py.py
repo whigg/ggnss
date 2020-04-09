@@ -158,7 +158,7 @@ if __name__ == "__main__":
     metavar  = 'SATELLITE_STRING'
   )
   args = parser.parse_args()
-  if args.sv[0] not in ['G', 'R', 'E']:
+  if args.sv[0] not in ['G', 'R', 'E', 'C']:
     print("[ERROR] Unrecognized satellite system in string: \'{:s}\'".format(args.sv))
     sys.exit(1)
   try :

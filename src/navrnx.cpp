@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <cerrno>
 #include "navrnx.hpp"
+#include "nvarstr.hpp"
 #include "ggdatetime/datetime_read.hpp"
 
 using ngpt::NavDataFrame;
@@ -62,66 +63,6 @@ noexcept
       break;
   }
   return lines_to_read;
-}
-
-/// @brief Replace all occurancies of 'D' or 'd' with 'E' in given c-string.
-/// @param[in] line A c-string; the replacement will happen 'in-place' so at
-///                 exit the string may be different.
-inline void
-__for2cpp__(char* line) noexcept
-{
-  char* c = line;
-  while (*c) {
-    if (*c == 'D' || *c == 'd') *c = 'E';
-    ++c;
-  }
-  return;
-}
-
-/// @details Resolve a string of N doubles, written with M digits (i.e. in the
-///          format N*D19.x as in RINEX 3.x) and asigne them to data[0,N).
-/// @param[in]  line  A c-string containing N doubles written with M digits
-/// @param[out] data  An array of (at least) N-1 elements; the resolved doubles
-///                   will be written in data[0]...data[N-1]
-/// @return  True if all numbers were resolved and assigned; false otherwise
-/// @warning The function will check 'errno'. Be sure that it is 0 at input. If
-///          an error occurs in the function call, it may be set to !=0, so be
-///          sure to clear it (aka 'errno') after exit.
-template<int N, int M>
-  inline bool
-  __char2double__(const char* line, double* data) noexcept
-{
-  char* end;
-  for (int i=0; i<N; i++) {
-    data[i] = std::strtod(line, &end);
-    if (line == end) return false;
-    line+=M;
-  }
-  return (errno) ? false : true;
-}
-
-/// @details Resolve a string of N doubles, written with M digits (i.e. in the
-///          format N*D19.x as in RINEX 3.x) and asigne them to data[0,N).
-/// @param[in]  line  A c-string containing N doubles written with M digits
-/// @param[out] data  An array of (at least) N-1 elements; the resolved doubles
-///                   will be written in data[0]...data[N-1]
-/// @return  True if all numbers were resolved and assigned; false otherwise
-/// @warning The function will check 'errno'. Be sure that it is 0 at input. If
-///          an error occurs in the function call, it may be set to !=0, so be
-///          sure to clear it (aka 'errno') after exit.
-/// @note exactly the same as the template version, only we don't know how many
-/// doubles we are resolving at compile time.
-template<int M>
-  inline bool
-  __char2double__(const char* line, double* data, int N) noexcept
-{
-  char* end;
-  for (int i=0; i<N; i++) {
-    data[i] = std::strtod(line, &end);
-    if (line == end) return false;
-    line+=M;
-  }
-  return (errno) ? false : true;
 }
 
 /// @details: Resolve a Nav. RINEX v3.x data block to a NavDataFrame. The
