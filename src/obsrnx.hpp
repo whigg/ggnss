@@ -14,6 +14,13 @@
 
 namespace ngpt
 {
+constexpr double RNXOBS_MISSING_VAL = -999.99;
+struct RawRnxObs__ {
+  double __val;
+  int __lli;
+  int __ssi;
+  int resolve(char *str) noexcept;
+};
 
 class ObservationRnx
 {
@@ -63,7 +70,7 @@ public:
   /// @brief allocate and return a string with enough capacity to hold all
   ///        observations (per epoch and satellite)
   char*
-  max_line() const noexcept;
+  max_line(std::size_t& len) const noexcept;
 
 #ifdef DEBUG
   void
@@ -88,6 +95,9 @@ public:
    }
 #endif
 
+  int
+  read_next_epoch();
+
 private:
   
   /// @brief Read RINEX header; assign info
@@ -97,6 +107,9 @@ private:
   int
   __resolve_epoch_304__(const char* cline, ngpt::modified_julian_day& mjd, 
     double& sec, int& flag, int& num_sats, double& rcvr_coff) noexcept;
+
+  int
+  collect_epoch(char* line, std::size_t line_size, int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec);
 
   int
   __resolve_obstypes_304__(const char*) noexcept;

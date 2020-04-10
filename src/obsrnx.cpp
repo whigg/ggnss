@@ -8,6 +8,7 @@
 #include "ggdatetime/datetime_read.hpp"
 
 using ngpt::ObservationRnx;
+using ngpt::RawRnxObs__;
 
 /// No header line can have more than 80 chars. However, there are cases when
 /// they  exceed this limit, just a bit ...
@@ -28,6 +29,24 @@ constexpr int MAX_HEADER_LINES { 1000 };
 #else
   constexpr std::size_t eoh_size { std::strlen("END OF HEADER") };
 #endif
+
+int
+RawRnxObs__::resolve(char *str) noexcept
+{
+  char* end;
+  if (string_is_empty(str, 14)) {
+    __val = RNXOBS_MISSING_VAL;
+    return 0;
+  }
+  __val = std::strtod(str, &end);
+  if (errno || str==end) {
+    errno=0; return 1;
+  }
+  __lli = (str[14]==' ') ? (0) : (str[14]-'0');
+  __ssi = (str[15]==' ') ? (0) : (str[15]-'0');
+
+  return 0;
+}
 
 /// @details ObservationRnx constructor, using a filename. The constructor will
 ///          initialize (set) the _filename attribute and also (try to)
@@ -275,35 +294,86 @@ noexcept
 }
 
 char*
-ObservationRnx::max_line() const noexcept
+ObservationRnx::max_line(std::size_t& len) const noexcept
 {
   std::size_t maxobs = this->max_obs();
-  char* line = new char[maxobs*14+4];
+  char* line = new char[maxobs*16+4];
+  len = maxobs*16+4;
   return line;
 }
 
 int
-ObservationRnx::resolve_epoch_sat_line(const char* cline)
+ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec)
 {
   char* end;
+  char tmp[] = "  ";
+  char obf[17]; obf[16]='\0';
+  SATELLITE_SYSTEM s;
+  int prn;
 
-  // resolve satellite system
-  ngpt::SATELLITE_SYSTEM s;
-  try {
-     s = ngpt::char_to_satsys(*line);
-  } catch (std::exception& e) {
-    std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_sat_line() failed to resolve satellite system";
-    return 1;
+  // The stream should be open by now!
+  if (!__istream.is_open()) return 1;
+  
+  // vector to collect observations
+  std::vector<RawRnxObs__> obs(this->max_obs());
+
+  int sat_it=0;
+
+  while (sat_it<numsats) {
+    // resolve satellite system
+    __istream.getline(line, line_size);
+    try {
+      s = char_to_satsys(*line);
+    } catch (std::exception& e) {
+      std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to resolve Satellite System";
+      return 1;
+    }
+
+    // if satellite system is to be collected ....
+    if (std::find(std::begin(sysvec), std::end(sysvec), s) != std::end(sysvec)) {
+      // resolve satellite prn
+      std::memcpy(tmp, line+1, 2);
+      prn = std::strtol(tmp, &end, 10);
+      if (errno || tmp==end) {
+        std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to resolve Satellite PRN";
+        errno=0; return 2;
+      }
+      // lets see what we are going to read ....
+      auto const& obsvec = __obstmap[s];
+      // how many observable types ?
+      std::size_t obsnum = obsvec.size();
+      // go ahead and resolve the observations
+      for (std::size_t i=0; i<obsnum; i++) {
+        std::memcpy(obf, line+3+i*16, 16);
+        if (obs[i].resolve(obf)) {
+          std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to collect observation";
+          return 3;
+        }
+      }
+    }
   }
+  return 0;
+}
 
-  // resolve PRN
-  int prn = std::strtod(cline+1, &end);
-  if ((errno || start==end) || (prn<1 || prn>99)) {
-    std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_sat_line() failed to resolve PRN";
-    errno=0; return 2;
+int
+ObservationRnx::read_next_epoch()
+{
+  std::vector<SATELLITE_SYSTEM> ssvec = {SATELLITE_SYSTEM::gps, SATELLITE_SYSTEM::glonass, SATELLITE_SYSTEM::beidou};
+  int c;
+  std::size_t line_buf_size;
+  char* line_buf = this->max_line(line_buf_size);
+  if ( (c=__istream.peek()) != EOF ) {
+    __istream.getline(line_buf, line_buf_size);
+    ngpt::modified_julian_day mjd;
+    double sec, rcvr_coff;
+    int flag, num_sats;
+    if (__resolve_epoch_304__(line_buf, mjd, sec, flag, num_sats, rcvr_coff)) return 20;
+    if (collect_epoch(line_buf, line_buf_size, num_sats, ssvec)) return 30;
   }
-
-  // number of observations that follow
-  int numobs = __obstmap[s];
-
+  delete[] line_buf;
+  if (__istream.eof()) {
+    __istream.clear();
+    return -1;
+  }
+  return 50;
 }
