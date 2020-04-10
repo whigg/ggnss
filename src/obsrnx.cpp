@@ -219,7 +219,12 @@ noexcept
   using ngpt::month;
   using ngpt::day_of_month;
 
-  if (*cline!='>') return 1;
+  std::size_t lnlen = std::strlen(cline);
+
+  if (*cline!='>' || lnlen<41) {
+    std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() Invalid epoch line";
+    return 1;
+  }
 
   // resolve the day as Modified Julian Day
   char* end;
@@ -228,6 +233,7 @@ noexcept
   for (int i=0; i<5; i++) {
     dints[i] = static_cast<int>(std::strtol(start, &end, 10));
     if (errno || start==end) {
+      std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve epoch";
       errno=0; return 2;
     }
     start = ++end;
@@ -241,6 +247,7 @@ noexcept
   // resolve seconds of day
   double rsec = std::strtod(start, &end);
   if (errno || start==end) {
+    std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve seconds";
     errno=0; return 3;
   }
   sec = (dints[3]*60e0 + dints[4])*60e0 + rsec;
@@ -251,14 +258,52 @@ noexcept
   // resolve num of satellites in epoch
   num_sats = static_cast<int>(std::strtol(cline+32, &end, 10));
   if (errno || start==end) {
+    std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve num sats";
     errno=0; return 4;
   }
 
   // resolve clock offset if any
-  rcvr_coff = string_is_empty(cline+41) ? 0e0 : std::strtod(cline+41, &end);
-  if (errno || start==end) {
-    errno=0; return 5;
+  if (lnlen>41) {
+    rcvr_coff = string_is_empty(cline+41) ? 0e0 : std::strtod(cline+41, &end);
+    if (errno || start==end) {
+      std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve receiver clock offset";
+      errno=0; return 5;
+    }
   }
 
   return 0;
+}
+
+char*
+ObservationRnx::max_line() const noexcept
+{
+  std::size_t maxobs = this->max_obs();
+  char* line = new char[maxobs*14+4];
+  return line;
+}
+
+int
+ObservationRnx::resolve_epoch_sat_line(const char* cline)
+{
+  char* end;
+
+  // resolve satellite system
+  ngpt::SATELLITE_SYSTEM s;
+  try {
+     s = ngpt::char_to_satsys(*line);
+  } catch (std::exception& e) {
+    std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_sat_line() failed to resolve satellite system";
+    return 1;
+  }
+
+  // resolve PRN
+  int prn = std::strtod(cline+1, &end);
+  if ((errno || start==end) || (prn<1 || prn>99)) {
+    std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_sat_line() failed to resolve PRN";
+    errno=0; return 2;
+  }
+
+  // number of observations that follow
+  int numobs = __obstmap[s];
+
 }

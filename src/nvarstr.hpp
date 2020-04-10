@@ -41,6 +41,68 @@ struct StrSearchPolicyStart {
   static std::string
   rtrim(const char* str, std::size_t& end, std::size_t stop) noexcept;
 };// StrSearchPolicyStart
+
+template<int M>
+struct StrConversionSpacesToZero {
+/// @details Resolve a string of N doubles, written with M digits (i.e. in the
+///          format N*DM.x as in RINEX 3.x) and asign them to data[0,N).
+/// @param[in]  line  A c-string containing N doubles written with M digits
+/// @param[out] data  An array of (at least) N-1 elements; the resolved doubles
+///                   will be written in data[0]...data[N-1]
+/// @param[in]  N     Number of floating point numbers to be resolved
+/// @tparam     M     Number of digits used per floating point
+/// @return  True if all numbers were resolved and assigned; false otherwise
+/// @warning The function will check 'errno'. Be sure that it is 0 at input. If
+///          an error occurs in the function call, it may be set to !=0, so be
+///          sure to clear it (aka 'errno') after exit.
+static bool
+__char2double__(const char* line, double* data, int N) noexcept
+{
+  char* end;
+  __str[M] = '\n';
+  for (int i=0; i<N; i++) {
+    if (string_is_empty(line, M) {
+      data[i] = 0e0;
+      end = line+M;
+    } else {
+      std::memcpy(__str, line, M);
+      data[i] = std::strtod(__str, &end);
+    }
+    if (line == end) return false;
+    line+=M;
+  }
+  return (errno) ? false : true;
+}
+};//StrConversionSpacesToZero
+
+template<int M>
+struct StrConversionNoSpaces {
+  static char[M+1] __str;
+/// @details Resolve a string of N doubles, written with M digits (i.e. in the
+///          format N*D19.x as in RINEX 3.x) and asigne them to data[0,N).
+/// @param[in]  line  A c-string containing N doubles written with M digits
+/// @param[out] data  An array of (at least) N-1 elements; the resolved doubles
+///                   will be written in data[0]...data[N-1]
+/// @return  True if all numbers were resolved and assigned; false otherwise
+/// @warning The function will check 'errno'. Be sure that it is 0 at input. If
+///          an error occurs in the function call, it may be set to !=0, so be
+///          sure to clear it (aka 'errno') after exit.
+/// @note exactly the same as the template version, only we don't know how many
+/// doubles we are resolving at compile time.
+  static bool
+  __char2double__(const char* line, double* data, int N) noexcept
+{
+  char* end;
+  __str[M] = '\n';
+  for (int i=0; i<N; i++) {
+    std::memcpy(__str, line, M);
+    data[i] = std::strtod(__str, &end);
+    if (__str == end) return false;
+    line+=M;
+  }
+  return (errno) ? false : true;
+}
+};
 }// str_algorithm_details
 
 /// @brief Righ-trim whitespaces from given string
@@ -91,29 +153,6 @@ template<int N, int M>
   return (errno) ? false : true;
 }
 
-/// @details Resolve a string of N doubles, written with M digits (i.e. in the
-///          format N*D19.x as in RINEX 3.x) and asigne them to data[0,N).
-/// @param[in]  line  A c-string containing N doubles written with M digits
-/// @param[out] data  An array of (at least) N-1 elements; the resolved doubles
-///                   will be written in data[0]...data[N-1]
-/// @return  True if all numbers were resolved and assigned; false otherwise
-/// @warning The function will check 'errno'. Be sure that it is 0 at input. If
-///          an error occurs in the function call, it may be set to !=0, so be
-///          sure to clear it (aka 'errno') after exit.
-/// @note exactly the same as the template version, only we don't know how many
-/// doubles we are resolving at compile time.
-template<int M>
-  inline bool
-  __char2double__(const char* line, double* data, int N) noexcept
-{
-  char* end;
-  for (int i=0; i<N; i++) {
-    data[i] = std::strtod(line, &end);
-    if (line == end) return false;
-    line+=M;
-  }
-  return (errno) ? false : true;
-}
 
 /// @brief Replace all occurancies of 'D' or 'd' with 'E' in given c-string.
 /// @param[in] line A c-string; the replacement will happen 'in-place' so at

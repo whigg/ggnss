@@ -1,0 +1,120 @@
+\documentclass[a4paper, 10pt]{article}
+\usepackage{cite} % Tidies up citation numbers.
+\usepackage{hyperref}
+\usepackage{url} % Provides better formatting of URLs.
+%\usepackage[utf8]{inputenc} % Allows Turkish characters.
+\usepackage{booktabs} % Allows the use of \toprule, \midrule and \bottomrule in tables for horizontal lines
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{multicol}
+\usepackage{imakeidx}
+\usepackage[top=1in, bottom=1.25in, left=.8in, right=.8in]{geometry}
+\lstset { %
+  language=C++,
+  backgroundcolor=\color{black!5}, % set backgroundcolor
+  basicstyle=\scriptsize,% basic font setting
+  tabsize=2
+}
+
+%%  start index
+\makeindex
+
+\begin{document}
+%\begin{titlepage}
+% paper title
+% can use linebreaks \\ within to get better formatting as desired
+\title{A Report on Developing ggnss Lib\\ My Notes and Shit I Have to Remember}
+
+% author names and affiliations
+\author{Xanthos \\
+Department of Computer Science\\
+Bilkent University\\
+}
+\date{25/4/15}
+
+% make the title area
+\maketitle
+\tableofcontents
+\listoffigures
+\listoftables
+%\end{titlepage}
+
+%\begin{abstract}
+%The abstract does not only mention the paper, but is the original paper shrunken to approximately 200 words. It states the purpose, reports the information obtained, gives conclusions, and recommendations. In short, it summarizes the main points of the study adequately and accurately. It provides information from every major section in the body of the report in a dense and compact way. Past tense and active voice is appropriate when describing what was done. If there is any, it includes key statistical detail.  
+%Depending on the format you use, the abstract may come on the title page or at the beginning of the main report.
+%\end{abstract}
+
+\newpage
+
+\begin{multicols}{2}
+\section{Introduction}
+This will be a revised version of the introduction in your proposal.
+
+\section{Navigation Data}
+Navigation data are read from RINEX 3.x files for most GNSS; each data block (aka
+a navigation data frame for a given satellite at a given epoch) is read/resolved 
+into a NavDataFrame\index{NavDataFrame}. Each NavDataFrame instance, has the following (private)
+members:
+\begin{lstlisting}
+  SATELLITE_SYSTEM  sys__{};     ///< Satellite system
+  int               prn__{};     ///< PRN as in Rinex 3x
+  datetime<seconds> toc__{};     ///< Time of clock
+  double            data__[31]{};///< Data block
+\end{lstlisting}
+The data stored in the \texttt{data\_\_} array are different for every GNSS; in fact
+GNSS use a different number of elements for the respective navigation messages.
+
+For every GNSS, there should be a function of type: \texttt{glo\_stateNclock(ngpt::datetime<T> t, double* state, double\& dt)}
+that computes the SV state (or just position vector) in an ECEF frame at a given
+epoch t, and the SV clock correction at the same epoch.
+\subsection{Gps Navigation Data}
+The GPS NavDataFrame::data\_\_ member is described in the file \texttt{gpsnav.cpp}.
+Note that we have two different dates here, \texttt{ToE} and \texttt{ToC}; the first
+is used (as reference time) to compute SV coordinates and the second to compute
+SV clock bias.
+
+To compute the SV coordinates from the navigation message, we use the algorithm 
+described in \cite{is_gps_200} in \texttt{20.3.3.4.3 User Algorithm for Ephemeris Determination}. This paragraph described how to \emph{compute the ECEF coordinates of position for the phase center of the SVs’ antennas}. Reference time is \texttt{ToE}.
+
+To compute the SV clock correction, we use the algorithm described in \cite{is_gps_200},
+\emph{20.3.3.3.3.1 User Algorithm for SV Clock Correction}. This correction is actually, 
+ \emph{determine the effective SV PRN code phase offset referenced} to the phase center of the antennas (Delta tsv) with respect to GPS system time (t) at the time of data transmission. 
+\subsection{Glonass Navigation Data}
+Describe your second solution here.
+\subsubsection{Subsubsection Heading Here}
+Use the subsubsection command with caution---you probably won't need it at, but I'm including it this an example.
+
+\section{Criteria for Assessing Solutions} \label{sec:criteria}
+This may be a modified version of your proposal depending on previously carried out research or any feedback received.  
+
+\end{multicols}
+
+%\appendices
+%\section{What Goes in the Appendices} \label{App:WhatGoes}
+%The appendix is for material that readers only need to know if they are studying the report in depth. Relevant charts, big tables of data, large maps, graphs, etc. that were part of the research, but would distract the flow of the report should be given in the Appendices. 
+%\section{Formatting the Appendices} \label{App:Formatting}
+%Each appendix needs to be given a letter (A, B, C, etc.) and a title. \LaTeX will do the lettering automatically.
+
+\begin{thebibliography}{1}
+% Here are a few examples of different citations 
+% Book
+\bibitem{is_gps_200} Global Positioning System Directorate, Systems Engineering \& Integration, \emph{Interface Specification IS-GPS-200H}, Navstar GPS Space Segment/Navigation User Interfaces, 24 Sep, 2013, Revision H
+\bibitem{icd_glonass_cdma} Russian Space Systems - JSC, \emph{GLONASS Interface Control Document, General Description of Code Division Multiple Access Signal System}, Edition 1.0, Moscow 2016 
+\bibitem{kopka_1999} % Note the label in the curly brackets. Use the cite the source; e.g., \cite{kopka_latex}
+H.~Kopka and P.~W. Daly, \emph{A Guide to \LaTeX}, 3rd~ed.\hskip 1em plus
+  0.5em minus 0.4em\relax Harlow, England: Addison-Wesley, 1999.
+\bibitem{horowitz_2005}D.~Horowitz, \emph{End of Time}. New York, NY, USA: Encounter Books, 2005. [E-book] Available: ebrary, \url{http://site.ebrary.com/lib/sait/Doc?id=10080005}. Accessed on: Oct. 8, 2008.
+% Article from database
+\bibitem{castlevecchi_2008}D.~Castelvecchi, ``Nanoparticles Conspire with Free Radicals'' \emph{Science News}, vol.174, no. 6, p. 9, September 13, 2008. [Full Text]. Available: Proquest, \url{http://proquest.umi.com/pqdweb?index=52&did=1557231641&SrchMode=1&sid=3&Fmt=3&VInst=PROD&VType=PQD&RQT=309&VName=PQD&TS=1229451226&clientId=533}. Accessed on: Aug.~3, 2014.
+% Conference Paper from the Internet
+\bibitem{lach_2010}J.~Lach, ``SBFS: Steganography based file system,'' in \emph{Proceedings of the 2008 1st International Conference on Information Technology, IT 2008, 19-21 May 2008, Gdansk, Poland.} Available: IEEE Xplore, \url{http://www.ieee.org}. [Accessed: 10 Sept. 2010].
+% Web page, no author
+\bibitem{a_laymans_explanation}``A `layman's' explanation of Ultra Narrow Band technology,'' Oct.~3, 2003. [Online]. Available: \url{http://www.vmsk.org/Layman.pdf}. [Accessed: Dec.~3, 2003]. 
+\end{thebibliography}
+
+% This is a hand-made bibliography. If you want to use a BibTeX file, you're on your own ;-)
+
+\clearpage
+\printindex
+\end{document}

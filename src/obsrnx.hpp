@@ -49,6 +49,22 @@ public:
   void
   rewind() noexcept;
 
+  /// @brief Max observables of any satellite system
+  /// Loop through the observables of every satellite system, and return the
+  /// max number of observables any satellite system can have
+  int
+  max_obs() const noexcept
+  {
+    std::size_t sz, max=0;
+    for (auto const& [key, val] : __obstmap) if ((sz=val.size())>max) max=sz;
+    return max;
+  }
+
+  /// @brief allocate and return a string with enough capacity to hold all
+  ///        observations (per epoch and satellite)
+  char*
+  max_line() const noexcept;
+
 #ifdef DEBUG
   void
   print_members() const noexcept
@@ -77,6 +93,10 @@ private:
   /// @brief Read RINEX header; assign info
   int
   read_header() noexcept;
+
+  int
+  __resolve_epoch_304__(const char* cline, ngpt::modified_julian_day& mjd, 
+    double& sec, int& flag, int& num_sats, double& rcvr_coff) noexcept;
 
   int
   __resolve_obstypes_304__(const char*) noexcept;
