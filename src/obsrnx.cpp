@@ -3,6 +3,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <cerrno>
+#include <algorithm>
 #include "obsrnx.hpp"
 #include "nvarstr.hpp"
 #include "ggdatetime/datetime_read.hpp"
@@ -228,6 +229,7 @@ ObservationRnx::__resolve_obstypes_304__(const char* cline) noexcept
   return 59;
 }
 
+/// @awarning error codes (at return) should be in range [0,10)
 int
 ObservationRnx::__resolve_epoch_304__(const char* cline,
   ngpt::modified_julian_day& mjd, double& sec, int& flag, int& num_sats,
@@ -240,8 +242,9 @@ noexcept
 
   std::size_t lnlen = std::strlen(cline);
 
-  if (*cline!='>' || lnlen<41) {
+  if (*cline!='>' || lnlen<35) {
     std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() Invalid epoch line";
+    std::cerr<<"\n        Line was: \""<<cline<<"\" length: "<<lnlen;
     return 1;
   }
 
@@ -253,6 +256,7 @@ noexcept
     dints[i] = static_cast<int>(std::strtol(start, &end, 10));
     if (errno || start==end) {
       std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve epoch";
+      std::cerr<<"\n        Line was: \""<<cline<<"\"";
       errno=0; return 2;
     }
     start = ++end;
@@ -267,6 +271,7 @@ noexcept
   double rsec = std::strtod(start, &end);
   if (errno || start==end) {
     std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve seconds";
+    std::cerr<<"\n        Line was: \""<<cline<<"\"";
     errno=0; return 3;
   }
   sec = (dints[3]*60e0 + dints[4])*60e0 + rsec;
@@ -278,6 +283,7 @@ noexcept
   num_sats = static_cast<int>(std::strtol(cline+32, &end, 10));
   if (errno || start==end) {
     std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve num sats";
+    std::cerr<<"\n        Line was: \""<<cline<<"\"";
     errno=0; return 4;
   }
 
@@ -286,6 +292,7 @@ noexcept
     rcvr_coff = string_is_empty(cline+41) ? 0e0 : std::strtod(cline+41, &end);
     if (errno || start==end) {
       std::cerr<<"\n[ERROR] ObservationRnx::__resolve_epoch_304__() failed to resolve receiver clock offset";
+      std::cerr<<"\n        Line was: \""<<cline<<"\"";
       errno=0; return 5;
     }
   }
@@ -309,7 +316,6 @@ ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, co
   char tmp[] = "  ";
   char obf[17]; obf[16]='\0';
   SATELLITE_SYSTEM s;
-  int prn;
 
   // The stream should be open by now!
   if (!__istream.is_open()) return 1;
@@ -317,7 +323,7 @@ ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, co
   // vector to collect observations
   std::vector<RawRnxObs__> obs(this->max_obs());
 
-  int sat_it=0;
+  int sat_it=0, prn;
 
   while (sat_it<numsats) {
     // resolve satellite system
@@ -326,6 +332,7 @@ ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, co
       s = char_to_satsys(*line);
     } catch (std::exception& e) {
       std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to resolve Satellite System";
+      std::cerr<<"\n        Line was: \""<<line<<"\"";
       return 1;
     }
 
@@ -334,8 +341,9 @@ ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, co
       // resolve satellite prn
       std::memcpy(tmp, line+1, 2);
       prn = std::strtol(tmp, &end, 10);
-      if (errno || tmp==end) {
+      if ((errno || tmp==end) || (prn<1 || prn>99)) {
         std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to resolve Satellite PRN";
+        std::cerr<<"\n        Line was: \""<<line<<"\"";
         errno=0; return 2;
       }
       // lets see what we are going to read ....
@@ -347,10 +355,12 @@ ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, co
         std::memcpy(obf, line+3+i*16, 16);
         if (obs[i].resolve(obf)) {
           std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to collect observation";
+          std::cerr<<"\n        Line was: \""<<line<<"\"";
           return 3;
         }
       }
     }
+    ++sat_it;
   }
   return 0;
 }
@@ -359,21 +369,22 @@ int
 ObservationRnx::read_next_epoch()
 {
   std::vector<SATELLITE_SYSTEM> ssvec = {SATELLITE_SYSTEM::gps, SATELLITE_SYSTEM::glonass, SATELLITE_SYSTEM::beidou};
-  int c;
+  int c,j;
   std::size_t line_buf_size;
   char* line_buf = this->max_line(line_buf_size);
   if ( (c=__istream.peek()) != EOF ) {
+    // if not EOF, read next line; it should be an epoche header line
     __istream.getline(line_buf, line_buf_size);
     ngpt::modified_julian_day mjd;
     double sec, rcvr_coff;
     int flag, num_sats;
-    if (__resolve_epoch_304__(line_buf, mjd, sec, flag, num_sats, rcvr_coff)) return 20;
-    if (collect_epoch(line_buf, line_buf_size, num_sats, ssvec)) return 30;
+    if ((j=__resolve_epoch_304__(line_buf, mjd, sec, flag, num_sats, rcvr_coff))) return 20+j;
+    if ((j=collect_epoch(line_buf, line_buf_size, num_sats, ssvec))) return 30+j;
   }
   delete[] line_buf;
   if (__istream.eof()) {
     __istream.clear();
     return -1;
   }
-  return 50;
+  return 0;
 }
