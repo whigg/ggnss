@@ -31,6 +31,27 @@ constexpr int MAX_HEADER_LINES { 1000 };
   constexpr std::size_t eoh_size { std::strlen("END OF HEADER") };
 #endif
 
+/// Resolve a RINEX observation using the relative string; this string, of type:
+/// (F14.3 I1 I1) is resolved as:
+/// F14.3 -> the actual value of the observation (if empty use the RNXOBS_MISSING_VAL
+///          value
+/// I1    -> Loss of lock indicator (LLI)
+///          * 0 or blank: OK or not known
+///          * Bit 0 set: Lost lock between previous and current observation: 
+///            Cycle slip possible. For phase observations only.
+///          * Bit 1 set: Half-cycle ambiguity/slip possible. Software not 
+///            capable of handling half cycles should skip this observation. 
+///            Valid for the current epoch only.
+///          * Bit 2 set: Galileo BOC-tracking of an MBOC-modulated signal (may
+///            suffer from increased noise)
+/// I1    -> Signal Strength Indicator (SSI) projected into interval 1-9:
+///          * 1: minimum possible signal strength
+///          * 5: average/good S/N ratio
+///          * 9: maximum possible signal strength
+///          * 0 or blank: not known, don't care
+/// @param[in] str A string of length (at least) 16 chars, following the format
+///                F14.3I1I1; any -or all- of the three numbers (the float or any
+///                of the ints can be blank)
 int
 RawRnxObs__::resolve(char *str) noexcept
 {
@@ -54,6 +75,8 @@ RawRnxObs__::resolve(char *str) noexcept
 ///          open the input stream (i.e. _istream).
 ///          If the file is successefuly opened, the constructor will read
 ///          the header and assign info.
+///          It will also allocate memory for the __buf pointer (using the
+///          collected head information).
 /// @param[in] filename  The filename of the Rinex file
 ObservationRnx::ObservationRnx(const char* filename)
   : __filename   (filename)
@@ -67,12 +90,31 @@ ObservationRnx::ObservationRnx(const char* filename)
       if (__istream.is_open()) __istream.close();
       throw std::runtime_error("[ERROR] Failed to read (obs) RINEX header; Error Code: "+std::to_string(j));
   }
+  std::size_t maxobs = this->max_obs();
+  __buf_sz = maxobs*16+4;
+  __buf = new char[__buf_sz];
 }
 
 /// Read a RINEX Observation v3.x header and assign vital information.
 /// The function will read all header lines, stoping after the line:
 /// "END OF HEADER"
 /// @return  Anything other than 0 denotes an error.
+///
+/// @todo Not handling yet:
+///       SIGNAL STRENGTH UNIT
+///       INTERVAL
+///       TIME OF FIRST OBS
+///       TIME OF LAST OBS
+///       RCV CLOCK OFFS APPL
+///       SYS / DCBS APPLIED
+///       SYS / PCVS APPLIED
+///       SYS / SCALE FACTOR
+///       SYS / PHASE SHIFT
+///       GLONASS SLOT / FRQ #
+///       GLONASS COD/PHS/BIS
+///       LEAP SECONDS
+///       # OF SATELLITES
+///       PRN / # OF OBS
 int
 ObservationRnx::read_header() noexcept
 {
@@ -106,7 +148,6 @@ ObservationRnx::read_header() noexcept
   while (dummy_it < MAX_HEADER_LINES 
          && std::strncmp(line+60, "END OF HEADER", eoh_size) ) {
     __istream.getline(line, MAX_HEADER_CHARS);
-    // check for marker name
     if (!std::strncmp(line+60, "MARKER NAME", std::strlen("MARKER NAME"))) {
       __marker_name = ngpt::rtrim(line, szt, 60);
     } else if (!std::strncmp(line+60, "MARKER NUMBER", std::strlen("MARKER NUMBER"))) {
@@ -168,7 +209,7 @@ ObservationRnx::read_header() noexcept
 /// resolve all Observation Types of the given sat. system and create a
 /// vector of such types (which is then pushed back to the instance's map).
 /// Hence, at success, the function will augment the instance's __obstmap
-/// dictionary by one.
+/// dictionary by one (satellite system).
 /// @param[in] cline First line of type "SYS / # / OBS TYPES" for any satellite
 ///                  system
 /// @return An integer value; anything other than 0, denotes an error
@@ -187,14 +228,14 @@ ObservationRnx::__resolve_obstypes_304__(const char* cline) noexcept
   if (__obstmap.find(satsys)!=__obstmap.end()) {
     std::cerr<<"\n[ERROR] ObservationRnx::read_header() Failed to resolve field: \"SYS / # / OBS TYPES\"";
     std::cerr<<"\n        Fatal Already resolved this satellite system!";
-    return 56;
+    return 1;
   }
   int obsnum = std::strtol(line+3, &end, 10);
   if (errno || (line+3)==end) {
     errno = 0;
     std::cerr<<"\n[ERROR] ObservationRnx::read_header() Failed to resolve field: \"SYS / # / OBS TYPES\"";
     std::cerr<<"\n        Fatal while interpreting Number of Obs Types";
-    return 53;
+    return 2;
   }
   // int lines_to_read = (obsnum-1)/13;
   int resolved=0, vecsz=0; 
@@ -205,7 +246,7 @@ ObservationRnx::__resolve_obstypes_304__(const char* cline) noexcept
       std::cerr<<e.what();
       std::cerr<<"\n[ERROR] ObservationRnx::read_header() Failed to resolve field: \"SYS / # / OBS TYPES\"";
       std::cerr<<"\n        Fatal while resolving type: \""<<(line+6+resolved*3)<<"\"";
-      return 54;
+      return 3;
     }
     ++resolved;
     ++vecsz;
@@ -215,7 +256,7 @@ ObservationRnx::__resolve_obstypes_304__(const char* cline) noexcept
         std::cerr<<"\n[ERROR] ObservationRnx::read_header() Failed to resolve field: \"SYS / # / OBS TYPES\"";
         std::cerr<<"\n        Fatal; expected line \"SYS / # / OBS TYPES\" and got: "
                  <<"\n        \""<<(line+60)<<"\"";
-        return 55;
+        return 4;
       }
       resolved=0;
     }
@@ -226,10 +267,25 @@ ObservationRnx::__resolve_obstypes_304__(const char* cline) noexcept
     return 0;
   }
 
-  return 59;
+  return 9;
 }
 
-/// @awarning error codes (at return) should be in range [0,10)
+/// @brief Resolve an epoch header line for a RINEX v.3x files
+///
+/// @param[in] cline An EPOCH header line as described in RINEX v3.x
+///                  specifications
+/// @param[out] mjd  The Modified Julian Day of the reference epoch (resolved
+///                  from Year, Month and DayOfMonth)
+/// @param[out] sec  Seconds of day (to go with mjd), resolved from hours,
+///                  minuts and seconds fields
+/// @param[out] flag Epoch flag:
+///                  * 0 -> OK
+///                  * 1 -> power failure between previous and current epoch
+///                  *>1 -> special event
+/// @param[out] num_sats  Number of satellites observed in current epoch
+/// @param[out] rcvr_coff Receiver clock offset (seconds, optional); if empty,
+///                       it is set to 0
+/// @warning error codes (at return) should be in range [0,10)
 int
 ObservationRnx::__resolve_epoch_304__(const char* cline,
   ngpt::modified_julian_day& mjd, double& sec, int& flag, int& num_sats,
@@ -300,6 +356,7 @@ noexcept
   return 0;
 }
 
+/*
 char*
 ObservationRnx::max_line(std::size_t& len) const noexcept
 {
@@ -308,9 +365,17 @@ ObservationRnx::max_line(std::size_t& len) const noexcept
   len = maxobs*16+4;
   return line;
 }
+*/
 
+/// Read and resolve observations of a given epoch
+///
+/// @param[in]  numsat  Number of satellites in current epoch
+/// @param[in]  sysvec  Vector of satellite systems to consider (observations that
+///                     belong to systems not in sysvec are ignored).
+/// @return Anything other than 0 denotes an error
 int
-ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec)
+ObservationRnx::collect_epoch(int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec)
+noexcept
 {
   char* end;
   char tmp[] = "  ";
@@ -327,23 +392,23 @@ ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, co
 
   while (sat_it<numsats) {
     // resolve satellite system
-    __istream.getline(line, line_size);
+    __istream.getline(__buf, __buf_sz);
     try {
-      s = char_to_satsys(*line);
+      s = char_to_satsys(*__buf);
     } catch (std::exception& e) {
       std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to resolve Satellite System";
-      std::cerr<<"\n        Line was: \""<<line<<"\"";
+      std::cerr<<"\n        Line was: \""<<__buf<<"\"";
       return 1;
     }
 
     // if satellite system is to be collected ....
     if (std::find(std::begin(sysvec), std::end(sysvec), s) != std::end(sysvec)) {
       // resolve satellite prn
-      std::memcpy(tmp, line+1, 2);
+      std::memcpy(tmp, __buf+1, 2);
       prn = std::strtol(tmp, &end, 10);
       if ((errno || tmp==end) || (prn<1 || prn>99)) {
         std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to resolve Satellite PRN";
-        std::cerr<<"\n        Line was: \""<<line<<"\"";
+        std::cerr<<"\n        Line was: \""<<__buf<<"\"";
         errno=0; return 2;
       }
       // lets see what we are going to read ....
@@ -352,10 +417,10 @@ ObservationRnx::collect_epoch(char* line, std::size_t line_size, int numsats, co
       std::size_t obsnum = obsvec.size();
       // go ahead and resolve the observations
       for (std::size_t i=0; i<obsnum; i++) {
-        std::memcpy(obf, line+3+i*16, 16);
+        std::memcpy(obf, __buf+3+i*16, 16);
         if (obs[i].resolve(obf)) {
           std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to collect observation";
-          std::cerr<<"\n        Line was: \""<<line<<"\"";
+          std::cerr<<"\n        Line was: \""<<__buf<<"\"";
           return 3;
         }
       }
@@ -370,18 +435,17 @@ ObservationRnx::read_next_epoch()
 {
   std::vector<SATELLITE_SYSTEM> ssvec = {SATELLITE_SYSTEM::gps, SATELLITE_SYSTEM::glonass, SATELLITE_SYSTEM::beidou};
   int c,j;
-  std::size_t line_buf_size;
-  char* line_buf = this->max_line(line_buf_size);
   if ( (c=__istream.peek()) != EOF ) {
     // if not EOF, read next line; it should be an epoche header line
-    __istream.getline(line_buf, line_buf_size);
+    __istream.getline(__buf, __buf_sz);
     ngpt::modified_julian_day mjd;
     double sec, rcvr_coff;
     int flag, num_sats;
-    if ((j=__resolve_epoch_304__(line_buf, mjd, sec, flag, num_sats, rcvr_coff))) return 20+j;
-    if ((j=collect_epoch(line_buf, line_buf_size, num_sats, ssvec))) return 30+j;
+    // resolve epoch header
+    if ((j=__resolve_epoch_304__(__buf, mjd, sec, flag, num_sats, rcvr_coff))) return 20+j;
+    // resolve observation block
+    if ((j=collect_epoch(num_sats, ssvec))) return 30+j;
   }
-  delete[] line_buf;
   if (__istream.eof()) {
     __istream.clear();
     return -1;

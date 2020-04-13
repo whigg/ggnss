@@ -36,6 +36,10 @@ public:
   ~ObservationRnx() noexcept 
   { 
     if (__istream.is_open()) __istream.close();
+    if (__buf) {
+      __buf_sz = 0;
+      delete[] __buf;
+    }
   }
   
   /// @brief Copy not allowed !
@@ -66,11 +70,6 @@ public:
     for (auto const& [key, val] : __obstmap) if ((sz=val.size())>max) max=sz;
     return max;
   }
-
-  /// @brief allocate and return a string with enough capacity to hold all
-  ///        observations (per epoch and satellite)
-  char*
-  max_line(std::size_t& len) const noexcept;
 
 #ifdef DEBUG
   void
@@ -109,26 +108,45 @@ private:
     double& sec, int& flag, int& num_sats, double& rcvr_coff) noexcept;
 
   int
-  collect_epoch(char* line, std::size_t line_size, int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec);
+  collect_epoch(int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec)
+  noexcept;
 
   int
   __resolve_obstypes_304__(const char*) noexcept;
 
-  std::string            __filename;    ///< The name of the file
-  std::ifstream          __istream;     ///< The infput (file) stream
-  SATELLITE_SYSTEM       __satsys;      ///< satellite system
-  float                  __version;     ///< Rinex version (e.g. 3.4)
-  pos_type               __end_of_head; ///< Mark the 'END OF HEADER' field
-  ReceiverAntenna        __antenna;
-  std::string            __marker_name,
-                         __marker_number,
-                         __receiver_number,
-                         __receiver_type;
-  double                 __approx[3],
-                         __eccentricity[3];
-  bool                   __rcv_clk_offs_applied{false};
+  std::string            __filename;        ///< The name of the file
+  std::ifstream          __istream;         ///< The infput (file) stream
+  SATELLITE_SYSTEM       __satsys;          ///< satellite system
+  float                  __version;         ///< Rinex version (e.g. 3.4)
+  pos_type               __end_of_head;     ///< Mark the 'END OF HEADER' field
+  ReceiverAntenna        __antenna;         ///< Antenna
+  std::string            __marker_name,     ///< Marker Name
+                         __marker_number,   ///< Marker number
+                         __receiver_number, ///< Receiver Serial
+                         __receiver_type;   ///< Receiver Type
+                        ///< Geocentric approximate marker position (meters)
+  double                __approx[3] = {0e0, 0e0, 0e0},
+                        ///< [0] Antenna height: Height of the antenna reference
+                        ///<     point (ARP) above the marker
+                        ///< [1] Horizontal eccentricity of ARP relative to the
+                        ///<     marker - east
+                        ///< [2] Horizontal eccentricity of ARP relative to the
+                        ///<     marker - north
+                        __eccentricity[3] = {0e0, 0e0, 0e0}; 
+                        ///< If true, Epoch, code, and phase are corrected by
+                        ///< applying the real-time-derived receiver clock
+  bool                  __rcv_clk_offs_applied{false};
+                        ///< Map of Observables per Satellite System; key is 
+                        ///< satellite system, value is a vector of observation 
+                        ///< descriptors (Type, Band, Attribute)
   std::map<SATELLITE_SYSTEM, std::vector<ObservationCode>> 
                          __obstmap;
+                        ///< A char buffer which can hold an observation line 
+                        ///< with maximum number of observables
+  char*                 __buf{nullptr};
+                        ///< Length of __buf, aka length of maximum observation 
+                        ///< line in file (this->max_obs()*16+4)
+  std::size_t           __buf_sz{0}; 
 
 };// ObservationRnx
 
