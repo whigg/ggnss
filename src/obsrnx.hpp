@@ -6,7 +6,7 @@
 #include <map>
 #include "satsys.hpp"
 #include "antenna.hpp"
-#include "gnssobs.hpp"
+#include "gnssobsrv.hpp"
 #include "ggdatetime/dtcalendar.hpp"
 #ifdef DEBUG
 #include "ggdatetime/datetime_write.hpp"
@@ -24,6 +24,9 @@ struct RawRnxObs__ {
 
 class ObservationRnx
 {
+  typedef std::pair<std::size_t, double> id_pair;
+  typedef std::vector<id_pair>           vecof_idpair;
+  
 public:
   /// Let's not write this more than once.
   typedef std::ifstream::pos_type pos_type;
@@ -58,7 +61,7 @@ public:
 
   /// @brief Set the stream to end of header
   void
-  rewind() noexcept;
+  rewind() noexcept {__istream.seekg(__end_of_head);}
 
   /// @brief Max observables of any satellite system
   /// Loop through the observables of every satellite system, and return the
@@ -97,8 +100,12 @@ public:
   int
   read_next_epoch();
 
+  std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
+  set_read_map(const std::vector<GnssObservable>& inobs)
+  const noexcept;
+
 private:
-  
+
   /// @brief Read RINEX header; assign info
   int
   read_header() noexcept;
@@ -110,9 +117,21 @@ private:
   int
   collect_epoch(int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec)
   noexcept;
+  
+  int
+  sat_epoch_collect(const std::vector<vecof_idpair>& sysobs, 
+    int& prn, std::vector<double>& vals)
+  const noexcept;
+  int
+  collect_epoch(int numsats, std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
+  noexcept;
 
   int
   __resolve_obstypes_304__(const char*) noexcept;
+
+  vecof_idpair
+  obs_getter(const GnssObservable& obs, SATELLITE_SYSTEM& sys, int& status)
+  const noexcept;
 
   std::string            __filename;        ///< The name of the file
   std::ifstream          __istream;         ///< The infput (file) stream

@@ -70,6 +70,11 @@ public:
   as_char() const noexcept
   {return __c;}
 
+  bool
+  operator==(ObservationAttribute other) const noexcept {return __c==other.__c;}
+  bool
+  operator!=(ObservationAttribute other) const noexcept {return !(*this==other);}
+
 private:
   char __c; ///< tracking mode or channel
 }; // Attribute
@@ -136,6 +141,15 @@ public:
   /// @brief Cast to std::string
   std::string
   to_string() const;
+
+  /// @brief compare with strict equality!
+  bool
+  operator==(const ObservationCode& other) const noexcept
+  {return __type==other.__type && (__band==other.__band && __attr==other.__attr);}
+  
+  bool
+  operator!=(const ObservationCode& other) const noexcept
+  {return !(*this == other);}
 
 private:
     OBSERVABLE_TYPE      __type;

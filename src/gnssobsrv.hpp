@@ -49,6 +49,17 @@ public:
   band() const noexcept
   {return __code.band();}
 
+  ngpt::ObservationCode
+  code() const noexcept {return __code;}
+
+  bool
+  operator==(const GnssRawObservable& o) const noexcept
+  {return __sys==o.__sys && __code==o.__code;}
+
+  bool
+  operator!=(const GnssRawObservable& o) const noexcept
+  {return !(*this == o);}
+
 private:
   ngpt::SATELLITE_SYSTEM __sys;
   ngpt::ObservationCode  __code;
@@ -71,9 +82,21 @@ struct __ObsPart
     __coef(c)
   {};
 
+  bool
+  operator==(const __ObsPart& o) const noexcept
+  {return __type==o.__type && __coef==o.__coef;}
+  
+  bool
+  operator!=(const __ObsPart& o) const noexcept
+  {return !(*this == o);}
+
   /// nominal frequency multiplied by coefficient in MHz
   double
   frequency() const;
+
+  /// return the type
+  GnssRawObservable
+  type() const noexcept {return __type;}
 
 }; // __ObsPart
 
@@ -107,6 +130,26 @@ public:
     for (const auto& v : __vec) frequency += v.frequency();
     return frequency;
   }
+  
+  std::vector<__ObsPart>
+  underlying_vector() const noexcept {return __vec;}
+
+  std::vector<__ObsPart>&
+  underlying_vector() noexcept {return __vec;}
+
+  bool
+  operator==(const GnssObservable& o) const noexcept
+  {
+    std::size_t sz = __vec.size();
+    if (o.__vec.size()!=sz) return false;
+    for (std::size_t i=0; i<sz; i++) if (__vec[i]!=o.__vec[i]) return false;
+    return true;
+  }
+
+  bool
+  operator!=(const GnssObservable& o) const noexcept
+  {return !(*this == o);}
+
 private:
   std::vector<__ObsPart> __vec;
 }; // class GnssObservable

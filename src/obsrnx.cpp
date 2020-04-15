@@ -356,17 +356,6 @@ noexcept
   return 0;
 }
 
-/*
-char*
-ObservationRnx::max_line(std::size_t& len) const noexcept
-{
-  std::size_t maxobs = this->max_obs();
-  char* line = new char[maxobs*16+4];
-  len = maxobs*16+4;
-  return line;
-}
-*/
-
 /// Read and resolve observations of a given epoch
 ///
 /// @param[in]  numsat  Number of satellites in current epoch
@@ -424,6 +413,141 @@ noexcept
           return 3;
         }
       }
+    }
+    ++sat_it;
+  }
+  return 0;
+}
+
+/// @brief Set map for reading RINEX observations
+///
+/// Given a vector of GnssObservable(s), this function will search through
+/// the observables in the RINEX files and construct a map to assist reading
+/// of the input stream. The map will have as key the SATELLITE_SYSTEM and as
+/// values a vector of vectors; For each observable (per sat.sys.), the vector
+/// will hold a pair, of index (aka RINEX column) and coefficient. E.g, if
+/// the user wants to collect (a) GPS L3 (that is let's say: a1*L1C + a2*L2P)
+/// and GPS L1C, then the resulting map will be of type (also suppose L1C is
+/// writen is n1 column and L2P in n2 column):
+/// std::map<SATELLITE_SYSTEM::gps, {{(n1,a1),(n2,a2)}, {(n1,1e0)}}>
+///
+std::map<ngpt::SATELLITE_SYSTEM, std::vector<ObservationRnx::vecof_idpair>>
+ObservationRnx::set_read_map(const std::vector<GnssObservable>& inobs)
+const noexcept
+{
+  typedef std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>> ResultType;
+  ResultType resmap;
+  int status;
+  SATELLITE_SYSTEM s;
+  for (auto const& i : inobs) { // for every GnssObservation
+    auto newvec = this->obs_getter(i, s, status);
+    if (status) {
+      std::cerr<<"\n[ERROR] ObservationRnx::set_read_map() Failed to set getter for"
+        <<" observable";
+        return ResultType{};
+    }
+    auto it = resmap.find(s);
+    if (it!=resmap.end()) {
+      it->second.emplace_back(newvec);
+    } else {
+      resmap[s].emplace_back(newvec);
+    }
+  }
+  return resmap;
+}
+
+ObservationRnx::vecof_idpair
+ObservationRnx::obs_getter(const GnssObservable& obs, SATELLITE_SYSTEM& sys, int& status)
+const noexcept
+{
+  status = 0;
+  // result vector
+  vecof_idpair ovec;
+  // the GnssObservable underlying vector
+  auto vec = obs.underlying_vector();
+  sys=vec[0].type().satsys();
+  // vector of ObservationCodes for given sat. sys. in this RINEX
+  auto it = __obstmap.find(sys);
+  if (it==__obstmap.end()) {
+    std::cerr<<"\n[ERROR] ObservationRnx::obs_getter() Rinex file does not contain obsrvations for satellite system: "<<satsys_to_char(sys);
+    status=1; return vecof_idpair{};
+  }
+  const std::vector<ObservationCode>& satsys_codes = it->second;
+  // ok, now: satsys_codes is the std::vector<ObservationCode> of the relevant satsys;
+  // remember i is __ObsPart
+  for (const auto& i : vec) {
+    if (i.type().satsys() != sys) {
+      std::cerr<<"\n[ERROR] ObservationRnx::obs_getter() Cannot handle mixed Satellite System observables";
+      status=2; return vecof_idpair{};
+    }
+    // for every __ObsPart in correlate an ObservationCode
+    auto j = std::find(satsys_codes.begin(), satsys_codes.end(), i.type().code());
+    if (j==satsys_codes.end()) {
+      std::cerr<<"\n[ERROR] Cannot find observable in RINEX ("
+        <<i.type().code().to_string()<<")";
+      status=3; return vecof_idpair{};
+    }
+    std::size_t idx = std::distance(satsys_codes.begin(), j);
+    double coef = i.__coef;
+    ovec.emplace_back(idx, coef);
+  }
+  return ovec;
+}
+
+/// param[in] sysobs A vector that contains info to 
+int
+ObservationRnx::sat_epoch_collect(const std::vector<vecof_idpair>& sysobs, 
+  int& prn, std::vector<double>& vals)
+const noexcept
+{
+  char tbuf[17];
+  char* end;
+
+  std::memset(tbuf, '\0', 17);
+  std::memcpy(tbuf, __buf+1, 2);
+  prn = std::strtol(tbuf, &end, 10);
+  if ((errno || tbuf==end) || (prn<1 || prn>99)) return 1;
+  
+  RawRnxObs__ raw_obs;
+  int k=0;
+  for (const auto& obsrv : sysobs) {
+    double obsval = 0e0;
+    for (const auto& pr : obsrv) {
+      std::size_t idx = pr.first;
+      std::memcpy(tbuf, __buf+3+idx*16, 16);
+      if (raw_obs.resolve(tbuf)) return 2;
+      obsval += raw_obs.__val * pr.second;
+    }
+    vals[k] = obsval; ++k;
+  }
+
+  return 0;
+}
+
+int
+ObservationRnx::collect_epoch(int numsats, std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
+noexcept
+{
+  typedef typename std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>::iterator mmap_it;
+  SATELLITE_SYSTEM s;
+  int sat_it=0, prn;
+  std::vector<double> vals(this->max_obs(), 0e0); 
+
+  while (sat_it<numsats) {
+    // resolve satellite system
+    __istream.getline(__buf, __buf_sz);
+    try {
+      s = char_to_satsys(*__buf);
+    } catch (std::exception& e) {
+      std::cerr<<"\n[ERROR] ObservationRnx::collect_epoch() Failed to resolve Satellite System";
+      std::cerr<<"\n        Line was: \""<<__buf<<"\"";
+      return 1;
+    }
+
+    // if satellite system is to be collected ....
+    mmap_it it = mmap.end();
+    if ((it = mmap.find(s))!=mmap.end()) {
+      if (sat_epoch_collect(mmap[s], prn, vals)) return 100;
     }
     ++sat_it;
   }
