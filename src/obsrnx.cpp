@@ -432,25 +432,30 @@ noexcept
 /// std::map<SATELLITE_SYSTEM::gps, {{(n1,a1),(n2,a2)}, {(n1,1e0)}}>
 ///
 std::map<ngpt::SATELLITE_SYSTEM, std::vector<ObservationRnx::vecof_idpair>>
-ObservationRnx::set_read_map(const std::vector<GnssObservable>& inobs)
+ObservationRnx::set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap)
 const noexcept
 {
   typedef std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>> ResultType;
   ResultType resmap;
   int status;
-  SATELLITE_SYSTEM s;
-  for (auto const& i : inobs) { // for every GnssObservation
-    auto newvec = this->obs_getter(i, s, status);
-    if (status) {
-      std::cerr<<"\n[ERROR] ObservationRnx::set_read_map() Failed to set getter for"
-        <<" observable";
+  for (auto const& inobs : inmap) {
+    SATELLITE_SYSTEM s;
+    for (auto const& i : inobs.second) { // for every GnssObservation
+      auto newvec = this->obs_getter(i, s, status);
+#ifdef DEBUG
+      assert(s==inobs.first);
+#endif
+      if (status) {
+        std::cerr<<"\n[ERROR] ObservationRnx::set_read_map() Failed to set getter for"
+          <<" observable";
         return ResultType{};
-    }
-    auto it = resmap.find(s);
-    if (it!=resmap.end()) {
-      it->second.emplace_back(newvec);
-    } else {
-      resmap[s].emplace_back(newvec);
+      }
+      auto it = resmap.find(s);
+      if (it!=resmap.end()) {
+        it->second.emplace_back(newvec);
+      } else {
+        resmap[s].emplace_back(newvec);
+      }
     }
   }
   return resmap;
@@ -478,6 +483,7 @@ const noexcept
   for (const auto& i : vec) {
     if (i.type().satsys() != sys) {
       std::cerr<<"\n[ERROR] ObservationRnx::obs_getter() Cannot handle mixed Satellite System observables";
+      std::cerr<<"\n        Problem with GnssObservable: "<<obs.to_string();
       status=2; return vecof_idpair{};
     }
     // for every __ObsPart in correlate an ObservationCode

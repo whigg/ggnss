@@ -101,7 +101,7 @@ public:
   read_next_epoch();
 
   std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
-  set_read_map(const std::vector<GnssObservable>& inobs)
+  set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap)
   const noexcept;
 
 private:

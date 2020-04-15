@@ -60,6 +60,13 @@ public:
   operator!=(const GnssRawObservable& o) const noexcept
   {return !(*this == o);}
 
+  std::string
+  to_string() const
+  {
+    std::string str(1, ngpt::satsys_to_char(__sys));
+    return str + "::" + __code.to_string();
+  }
+
 private:
   ngpt::SATELLITE_SYSTEM __sys;
   ngpt::ObservationCode  __code;
@@ -97,6 +104,12 @@ struct __ObsPart
   /// return the type
   GnssRawObservable
   type() const noexcept {return __type;}
+  
+  std::string
+  to_string() const
+  {
+    return __type.to_string() + "*" + std::to_string(__coef);
+  }
 
 }; // __ObsPart
 
@@ -149,6 +162,23 @@ public:
   bool
   operator!=(const GnssObservable& o) const noexcept
   {return !(*this == o);}
+
+  bool
+  is_of_mixed_satsys() const noexcept
+  {
+    if (!__vec.size()) return false;
+    auto sys = __vec[0].__type.satsys();
+    for (const auto& obspart : __vec) if (obspart.__type.satsys()!=sys) return true;
+    return false;
+  }
+  
+  std::string
+  to_string() const
+  {
+    std::string str;
+    for (const auto& o : __vec) str += o.to_string();
+    return str;
+  }
 
 private:
   std::vector<__ObsPart> __vec;
