@@ -88,13 +88,27 @@ int main(int argc, char* argv[])
   std::cout<<"\n\nTrying with an empty map:";
   result = rnx.set_read_map(map_er1);
   print_map(map_er1, result);
+  std::cout<<"\nThe above should have returned an empty map";
 
   // last observable is galileo!
   map_er1[ngpt::SATELLITE_SYSTEM::gps] = std::vector<GnssObservable>{gc5q, gc3c, ec8q};
   std::cout<<"\n\nTrying with an observable of different sat. sys.:";
   result = rnx.set_read_map(map_er1);
   print_map(map_er1, result);
-
+  std::cout<<"\nThe above should have returned an empty map and produced an error";
+  
+  // GnssObservable with missing RINEX obs types
+  GnssObservable gmis(ngpt::SATELLITE_SYSTEM::gps, ObservationCode("C1Y"), .5e0);
+                 gmis.add(ngpt::SATELLITE_SYSTEM::gps, ObservationCode("C2M"), .5e0);
+  map_er1[ngpt::SATELLITE_SYSTEM::gps] = std::vector<GnssObservable>{gc5q, gc3c, gmis};
+  std::cout<<"\n\nTrying with Observation Codes that are not there:";
+  result = rnx.set_read_map(map_er1);
+  print_map(map_er1, result);
+  std::cout<<"\nThe above should have returned an empty map and produced an error";
+  std::cout<<"\nHowever, we can treat missing as only warnings!";
+  result = rnx.set_read_map(map_er1, true);
+  print_map(map_er1, result);
+  std::cout<<"\nThe above should have returned a non-empty map and produced a warning";
 
   std::cout<<"\n";
   return 0;

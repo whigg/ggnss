@@ -488,6 +488,10 @@ noexcept
 ///
 /// @param[in] inmap A map with key SATELLITE_SYSTEM and values the respective
 ///                  vector of GnssObservables we want to read off the file
+/// @param[in] skip_missing In case it is true, missing Observables and/or
+///                  satellite systems will only produce a warning and will
+///                  otherwise be ignored. If set to false, then they will
+///                  trigger an error (and an empty map will be returned)
 /// @reuturn A map with key SATELLITE_SYSTEM and values vector, of vectors of
 ///          <std::size_t, double> pairs; each pair denotes the index and 
 ///          coefficient of a RINEX observable (e.g. (13, 1.23) means read
@@ -496,7 +500,7 @@ noexcept
 ///          combination, the respective vector's size will be > 1). Example:
 ///          map[GAL] = {{(0, 1)}, {(4, 0.3), (12, 0.3), (16, 0.3)}, {(16, 1)}}
 std::map<ngpt::SATELLITE_SYSTEM, std::vector<ObservationRnx::vecof_idpair>>
-ObservationRnx::set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap)
+ObservationRnx::set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap, bool skip_missing)
 const noexcept
 {
   typedef std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>> ResultType;
@@ -516,20 +520,30 @@ const noexcept
       // for every GnssObservable get a vector of vectors of pairs, e.g.
       // {(4, 0.3), (12, 0.3), (16, 0.3)}
       auto newvec = this->obs_getter(i, s, status);
-#ifdef DEBUG
-      assert(s==inobs.first);
-#endif
-      if (status) {
+      // inapropriate sat sys or status>0
+      if (s!=inobs.first || status>0) {
         std::cerr<<"\n[ERROR] ObservationRnx::set_read_map() Failed to set getter for"
-          <<" observable";
+          <<" observable: "<<i.to_string();
         return ResultType{};
       }
-      // add an entry for the satellite system
-      auto it = resmap.find(s);
-      if (it!=resmap.end()) {
-        it->second.emplace_back(newvec);
+      // status is ok; add vector
+      if (!status) {
+        auto it = resmap.find(s);
+        if (it!=resmap.end()) {
+          it->second.emplace_back(newvec);
+        } else {
+          resmap[s].emplace_back(newvec);
+        }
+      // status is < 0 (aka something is missing, hence got an empty vector
       } else {
-        resmap[s].emplace_back(newvec);
+        std::cerr<<"\n[WARNING] ObservationRnx::set_read_map() Cannot handle Observable:"
+          <<i.to_string();
+        if (skip_missing) {
+          std::cerr<<"\n          Missing either Satellite System or Observation Type(s)";
+          std::cerr<<"\n          Observable will be ignored!";
+        } else {
+          return ResultType{};
+        }
       }
     }
   }
@@ -551,7 +565,12 @@ const noexcept
 ///
 /// @param[in]  obs  The GnssObservable to get info for
 /// @param[out] sys  The satellite system of the observable
-/// @param[out] status The return status; anything other than 0 denotes an error
+/// @param[out] status The return status as follows:
+///                  -2 : Observable does not exist in RINEX file
+///                  -1 : Satellite system (of observable) does not exist in RINEX
+///                   0 : all ok
+///                   1 : Observable is of mixed-satellite type
+///                   If the status is not 0, then the returned vector is empty 
 ObservationRnx::vecof_idpair
 ObservationRnx::obs_getter(const GnssObservable& obs, SATELLITE_SYSTEM& sys, int& status)
 const noexcept
@@ -566,7 +585,7 @@ const noexcept
   auto it = __obstmap.find(sys);
   if (it==__obstmap.end()) {
     std::cerr<<"\n[ERROR] ObservationRnx::obs_getter() Rinex file does not contain obsrvations for satellite system: "<<satsys_to_char(sys);
-    status=1; return vecof_idpair{};
+    status=-1; return vecof_idpair{};
   }
   const std::vector<ObservationCode>& satsys_codes = it->second;
   // ok, now: satsys_codes is the std::vector<ObservationCode> of the relevant satsys;
@@ -575,14 +594,14 @@ const noexcept
     if (i.type().satsys() != sys) {
       std::cerr<<"\n[ERROR] ObservationRnx::obs_getter() Cannot handle mixed Satellite System observables";
       std::cerr<<"\n        Problem with GnssObservable: "<<obs.to_string();
-      status=2; return vecof_idpair{};
+      status=1; return vecof_idpair{};
     }
     // for every __ObsPart in correlate an ObservationCode
     auto j = std::find(satsys_codes.begin(), satsys_codes.end(), i.type().code());
     if (j==satsys_codes.end()) {
       std::cerr<<"\n[ERROR] Cannot find observable in RINEX ("
         <<i.type().code().to_string()<<")";
-      status=3; return vecof_idpair{};
+      status=-2; return vecof_idpair{};
     }
     std::size_t idx = std::distance(satsys_codes.begin(), j);
     double coef = i.__coef;
