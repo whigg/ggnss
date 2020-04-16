@@ -33,8 +33,8 @@ constexpr int MAX_HEADER_LINES { 1000 };
 
 /// Resolve a RINEX observation using the relative string; this string, of type:
 /// (F14.3 I1 I1) is resolved as:
-/// F14.3 -> the actual value of the observation (if empty use the RNXOBS_MISSING_VAL
-///          value
+/// F14.3 -> the actual value of the observation (if empty use the 
+///          RNXOBS_MISSING_VA Lvalue
 /// I1    -> Loss of lock indicator (LLI)
 ///          * 0 or blank: OK or not known
 ///          * Bit 0 set: Lost lock between previous and current observation: 
@@ -93,6 +93,38 @@ ObservationRnx::ObservationRnx(const char* filename)
   std::size_t maxobs = this->max_obs();
   __buf_sz = maxobs*16+4;
   __buf = new char[__buf_sz];
+}
+
+/// Destructor; close the stream and delete the allocated buffer
+ObservationRnx::~ObservationRnx() noexcept
+{
+  if (__istream.is_open()) __istream.close();
+  if (__buf) {
+    __buf_sz = 0;
+    delete[] __buf;
+  }
+}
+
+/// Loop through the observables of every satellite system, and return the
+/// max number of observables any satellite system can have
+/// Example:
+///G   18 C1C L1C D1C S1C C1W S1W C2W L2W D2W S2W C2L L2L D2L  SYS / # / OBS TYPES
+///       S2L C5Q L5Q D5Q S5Q                                  SYS / # / OBS TYPES
+///E   20 C1C L1C D1C S1C C6C L6C D6C S6C C5Q L5Q D5Q S5Q C7Q  SYS / # / OBS TYPES
+///       L7Q D7Q S7Q C8Q L8Q D8Q S8Q                          SYS / # / OBS TYPES
+///S    8 C1C L1C D1C S1C C5I L5I D5I S5I                      SYS / # / OBS TYPES
+///R   20 C1C L1C D1C S1C C1P L1P D1P S1P C2P L2P D2P S2P C2C  SYS / # / OBS TYPES
+///       L2C D2C S2C C3Q L3Q D3Q S3Q                          SYS / # / OBS TYPES
+///C   12 C2I L2I D2I S2I C7I L7I D7I S7I C6I L6I D6I S6I      SYS / # / OBS TYPES
+///J   12 C1C L1C D1C S1C C2L L2L D2L S2L C5Q L5Q D5Q S5Q      SYS / # / OBS TYPES
+///I    4 C5A L5A D5A S5A                                      SYS / # / OBS TYPES
+/// In this case the function will return '20'
+int
+ObservationRnx::max_obs() const noexcept
+{
+  std::size_t sz, max=0;
+  for (auto const& [key, val] : __obstmap) if ((sz=val.size())>max) max=sz;
+  return max;
 }
 
 /// Read a RINEX Observation v3.x header and assign vital information.
@@ -362,6 +394,7 @@ noexcept
 /// @param[in]  sysvec  Vector of satellite systems to consider (observations that
 ///                     belong to systems not in sysvec are ignored).
 /// @return Anything other than 0 denotes an error
+/*
 int
 ObservationRnx::collect_epoch(int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec)
 noexcept
@@ -418,29 +451,70 @@ noexcept
   }
   return 0;
 }
+*/
 
-/// @brief Set map for reading RINEX observations
-///
-/// Given a vector of GnssObservable(s), this function will search through
+/// Given a map of SATSYS-GnssObservable(s), this function will search through
 /// the observables in the RINEX files and construct a map to assist reading
 /// of the input stream. The map will have as key the SATELLITE_SYSTEM and as
 /// values a vector of vectors; For each observable (per sat.sys.), the vector
-/// will hold a pair, of index (aka RINEX column) and coefficient. E.g, if
-/// the user wants to collect (a) GPS L3 (that is let's say: a1*L1C + a2*L2P)
-/// and GPS L1C, then the resulting map will be of type (also suppose L1C is
-/// writen is n1 column and L2P in n2 column):
-/// std::map<SATELLITE_SYSTEM::gps, {{(n1,a1),(n2,a2)}, {(n1,1e0)}}>
+/// will hold a pair, of index (aka RINEX column) and coefficient.
+/// Example:
+/// Suppose the RINEX holds the following observables:
+///G   18 C1C L1C D1C S1C C1W S1W C2W L2W D2W S2W C2L L2L D2L  SYS / # / OBS TYPES
+///       S2L C5Q L5Q D5Q S5Q                                  SYS / # / OBS TYPES
+///E   20 C1C L1C D1C S1C C6C L6C D6C S6C C5Q L5Q D5Q S5Q C7Q  SYS / # / OBS TYPES
+///       L7Q D7Q S7Q C8Q L8Q D8Q S8Q                          SYS / # / OBS TYPES
+///S    8 C1C L1C D1C S1C C5I L5I D5I S5I                      SYS / # / OBS TYPES
+///R   20 C1C L1C D1C S1C C1P L1P D1P S1P C2P L2P D2P S2P C2C  SYS / # / OBS TYPES
+///       L2C D2C S2C C3Q L3Q D3Q S3Q                          SYS / # / OBS TYPES
+///C   12 C2I L2I D2I S2I C7I L7I D7I S7I C6I L6I D6I S6I      SYS / # / OBS TYPES
+///J   12 C1C L1C D1C S1C C2L L2L D2L S2L C5Q L5Q D5Q S5Q      SYS / # / OBS TYPES
+///I    4 C5A L5A D5A S5A                                      SYS / # / OBS TYPES
+/// Further suppose the user want the following GnssObserbale(s):
+/// input_map[GPS] = {G::C5Q*1.0, G::C1C*0.5+G::C2W*0.5}
+/// input_map[GLO] = {R::C1P*1.0, R::C1C*0.3+R::C2P*0.30+R::C3Q*0.3}
+/// input_map[GAL] = {E::C1C*1.0, E::C6C*0.3+E::C7Q*0.3+E::C8Q*0.3, E::C8Q*1.0}
+/// The resulting map, will hold:
+/// output_map[GPS] = {{(14, 1)}, {(0, 0.5), (6, 0.5)}}
+/// output_map[GLO] = {{(4, 1)}, {(0, 0.3), (8, 0.3),(16, 0.3)}}
+/// output_map[GAL] = {{(0, 1)}, {(4, 0.3), (12, 0.3), (16, 0.3)}, {(16, 1)}}
+/// In this way we know that to form the GPS#2 observable (aka G::C1C*0.5+G::C2W*0.5)
+/// we need the {(0, 0.5), (6, 0.5)} vector, which means COL#0*0.5 and 
+/// COL#6*0.5
+/// We actually have to columns (to read) and coefficients to formulate the
+/// input GnssObservable(s)
+/// 
+/// In case of error, an empty map is returned (holding NO satellite systems)
 ///
+/// @param[in] inmap A map with key SATELLITE_SYSTEM and values the respective
+///                  vector of GnssObservables we want to read off the file
+/// @reuturn A map with key SATELLITE_SYSTEM and values vector, of vectors of
+///          <std::size_t, double> pairs; each pair denotes the index and 
+///          coefficient of a RINEX observable (e.g. (13, 1.23) means read
+///          column 14 and multiply value with 1.23). Inner vectors hold all
+///          pairs for one GnssObservable (if a GnssObservable is a linear
+///          combination, the respective vector's size will be > 1). Example:
+///          map[GAL] = {{(0, 1)}, {(4, 0.3), (12, 0.3), (16, 0.3)}, {(16, 1)}}
 std::map<ngpt::SATELLITE_SYSTEM, std::vector<ObservationRnx::vecof_idpair>>
 ObservationRnx::set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap)
 const noexcept
 {
   typedef std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>> ResultType;
   ResultType resmap;
+
+  // quick return if input map is empty
+  if (inmap.empty()) return ResultType{};
+  
   int status;
+  // Loop through all elements of input map, aka:
+  // inobs->first  : SATELLITE_SYSTEM
+  // inobs->second : std::vector<GnssObservable>
   for (auto const& inobs : inmap) {
     SATELLITE_SYSTEM s;
-    for (auto const& i : inobs.second) { // for every GnssObservation
+    // Loop through all elements of std::vector<GnssObservable> for a sat sys
+    for (auto const& i : inobs.second) {
+      // for every GnssObservable get a vector of vectors of pairs, e.g.
+      // {(4, 0.3), (12, 0.3), (16, 0.3)}
       auto newvec = this->obs_getter(i, s, status);
 #ifdef DEBUG
       assert(s==inobs.first);
@@ -450,6 +524,7 @@ const noexcept
           <<" observable";
         return ResultType{};
       }
+      // add an entry for the satellite system
       auto it = resmap.find(s);
       if (it!=resmap.end()) {
         it->second.emplace_back(newvec);
@@ -461,6 +536,22 @@ const noexcept
   return resmap;
 }
 
+/// Given a GnssObservable return a vector of <index coefficient> pairs so that
+/// when reading a relevant satellite record line we know what columns to read
+/// (and the respective coefficients) to formulate that GnssObservable.
+/// E.g.
+/// Suppose the RINEX holds the following observables:
+///G   18 C1C L1C D1C S1C C1W S1W C2W L2W D2W S2W C2L L2L D2L  SYS / # / OBS TYPES
+///       S2L C5Q L5Q D5Q S5Q                                  SYS / # / OBS TYPES
+/// and we want to collect the GnssObservable "G::C1C*0.5+G::C2W*0.5"
+/// the result will be the vector: {(0, 0.5), (6, 0.5)}. For each pair the
+/// first element is the (relevant row's) column index and the second element
+/// is the corresponding coefficient.
+/// The function only accepts GnssObservable(s) of a single satellite system
+///
+/// @param[in]  obs  The GnssObservable to get info for
+/// @param[out] sys  The satellite system of the observable
+/// @param[out] status The return status; anything other than 0 denotes an error
 ObservationRnx::vecof_idpair
 ObservationRnx::obs_getter(const GnssObservable& obs, SATELLITE_SYSTEM& sys, int& status)
 const noexcept
@@ -560,6 +651,7 @@ noexcept
   return 0;
 }
 
+/*
 int
 ObservationRnx::read_next_epoch()
 {
@@ -582,3 +674,4 @@ ObservationRnx::read_next_epoch()
   }
   return 0;
 }
+*/

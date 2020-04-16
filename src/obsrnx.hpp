@@ -14,11 +14,17 @@
 
 namespace ngpt
 {
+
+///< A missing (observable) value in a RINEX file, will result in this value:
 constexpr double RNXOBS_MISSING_VAL = -999.99;
+
+/// @brief A simple struct to hold a RINEX observation
 struct RawRnxObs__ {
-  double __val;
-  int __lli;
-  int __ssi;
+  double __val; ///< the actual value (observation); if empty in RINEX it will
+                ///< default to RNXOBS_MISSING_VAL
+  int __lli;    ///< Loss-Of-Lock indicator should only be associated with the 
+                ///< phase observation
+  int __ssi;    ///< Signal Strength Indicator (SSI)
   int resolve(char *str) noexcept;
 };
 
@@ -35,15 +41,8 @@ public:
   explicit
   ObservationRnx(const char*);
   
-  /// @brief Destructor (closing the file is not mandatory, but nevertheless)
-  ~ObservationRnx() noexcept 
-  { 
-    if (__istream.is_open()) __istream.close();
-    if (__buf) {
-      __buf_sz = 0;
-      delete[] __buf;
-    }
-  }
+  /// @brief Destructor
+  ~ObservationRnx() noexcept;
   
   /// @brief Copy not allowed !
   ObservationRnx(const ObservationRnx&) = delete;
@@ -64,15 +63,8 @@ public:
   rewind() noexcept {__istream.seekg(__end_of_head);}
 
   /// @brief Max observables of any satellite system
-  /// Loop through the observables of every satellite system, and return the
-  /// max number of observables any satellite system can have
   int
-  max_obs() const noexcept
-  {
-    std::size_t sz, max=0;
-    for (auto const& [key, val] : __obstmap) if ((sz=val.size())>max) max=sz;
-    return max;
-  }
+  max_obs() const noexcept;
 
 #ifdef DEBUG
   void
@@ -97,9 +89,7 @@ public:
    }
 #endif
 
-  int
-  read_next_epoch();
-
+  /// @brief Set map for reading RINEX observations
   std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
   set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap)
   const noexcept;
@@ -110,25 +100,27 @@ private:
   int
   read_header() noexcept;
 
+  /// @brief Resolve an epoch header line for a RINEX v.3x files
   int
   __resolve_epoch_304__(const char* cline, ngpt::modified_julian_day& mjd, 
-    double& sec, int& flag, int& num_sats, double& rcvr_coff) noexcept;
-
-  int
-  collect_epoch(int numsats, const std::vector<SATELLITE_SYSTEM>& sysvec)
+    double& sec, int& flag, int& num_sats, double& rcvr_coff)
   noexcept;
-  
+
   int
   sat_epoch_collect(const std::vector<vecof_idpair>& sysobs, 
     int& prn, std::vector<double>& vals)
   const noexcept;
+  
   int
   collect_epoch(int numsats, std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
   noexcept;
 
+  /// @brief Resolve line(s) of type "SYS / # / OBS TYPES" as RINEX v3.04
   int
   __resolve_obstypes_304__(const char*) noexcept;
 
+  /// @brief Given a GnssObservable collect info on how to read and formulate it
+  ///        (aka observable index column and coefficient)
   vecof_idpair
   obs_getter(const GnssObservable& obs, SATELLITE_SYSTEM& sys, int& status)
   const noexcept;

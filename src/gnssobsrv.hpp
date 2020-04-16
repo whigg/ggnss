@@ -27,6 +27,7 @@
 
 namespace ngpt
 {
+
 class GnssRawObservable
 {
 public:
@@ -61,11 +62,7 @@ public:
   {return !(*this == o);}
 
   std::string
-  to_string() const
-  {
-    std::string str(1, ngpt::satsys_to_char(__sys));
-    return str + "::" + __code.to_string();
-  }
+  to_string() const noexcept;
 
 private:
   ngpt::SATELLITE_SYSTEM __sys;
@@ -106,10 +103,7 @@ struct __ObsPart
   type() const noexcept {return __type;}
   
   std::string
-  to_string() const
-  {
-    return __type.to_string() + "*" + std::to_string(__coef);
-  }
+  to_string() const noexcept;
 
 }; // __ObsPart
 
@@ -173,12 +167,7 @@ public:
   }
   
   std::string
-  to_string() const
-  {
-    std::string str;
-    for (const auto& o : __vec) str += o.to_string();
-    return str;
-  }
+  to_string() const noexcept;
 
 private:
   std::vector<__ObsPart> __vec;

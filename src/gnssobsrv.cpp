@@ -39,3 +39,25 @@ ngpt::__ObsPart::frequency() const
   // shoud never reach here!
   return 0e0;
 }
+  
+std::string
+ngpt::GnssRawObservable::to_string() const noexcept
+{
+  std::string str(1, ngpt::satsys_to_char(__sys));
+  return str + "::" + __code.to_string();
+}
+
+std::string
+ngpt::__ObsPart::to_string() const noexcept
+{
+  return __type.to_string() + "*" + std::to_string(__coef);
+}
+
+std::string
+ngpt::GnssObservable::to_string() const noexcept
+{
+  std::string str = __vec[0].to_string();
+  auto len = __vec.size();
+  for (std::size_t i=1; i<len; i++) str += ("+" + __vec[i].to_string());
+  return str;
+}

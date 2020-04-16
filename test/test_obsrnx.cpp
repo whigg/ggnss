@@ -6,6 +6,33 @@
 using ngpt::ObservationRnx;
 using ngpt::ObservationCode;
 using ngpt::GnssObservable;
+using ngpt::SATELLITE_SYSTEM;
+  
+typedef std::pair<std::size_t, double> id_pair;
+typedef std::vector<id_pair>           vecof_idpair;
+
+void
+print_map(std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& map, 
+  std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& result)
+{
+  if (result.empty()) {
+    std::cout<<"\nEmpty result map!";
+    return;
+  }
+  for (auto s : {SATELLITE_SYSTEM::gps, SATELLITE_SYSTEM::glonass, SATELLITE_SYSTEM::galileo}) {
+    std::cout<<"\nFor sat-sys: "<<ngpt::satsys_to_char(s)
+      <<", we will collect the following:";
+    int i=0;
+    for (const auto& it_i : result[s]) { //
+      GnssObservable t = map[s].operator[](i);
+      std::cout<<"\n *size = "<<it_i.size()<<" GnssObservable is: "<<t.to_string();
+      for (const auto& it_j : it_i) {
+        std::cout<<"\n\t"<<it_j.first<<", "<<it_j.second;
+      }
+      ++i;
+    }
+  }
+}
 
 int main(int argc, char* argv[])
 {
@@ -17,18 +44,6 @@ int main(int argc, char* argv[])
   // read header and print info
   ObservationRnx rnx(argv[1]);
   rnx.print_members();
-
-  // read epochs
-  int status=0, numepochs=0;
-  while (!status) {
-    status = rnx.read_next_epoch();
-    ++numepochs;
-  }
-  std::cout<<"\nEnded reading Rinex file; last status: "<<status
-    <<" num of epochs: "<<numepochs;
-
-  // go to END OF HEADER
-  rnx.rewind();
 
   // let's make a map ob observables that we want to collect
   ObservationCode _gc1c("C1C"); //< GPS
@@ -66,19 +81,20 @@ int main(int argc, char* argv[])
   // let's see what we are going to collect
   //std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
   auto result = rnx.set_read_map(map);
-  for (auto s : {ngpt::SATELLITE_SYSTEM::gps, ngpt::SATELLITE_SYSTEM::glonass, ngpt::SATELLITE_SYSTEM::galileo}) {
-    std::cout<<"\nFor sat-sys: "<<ngpt::satsys_to_char(s)
-      <<", we will collect the following:";
-    int i=0;
-    for (const auto& it_i : result[s]) { //
-      GnssObservable t = map[s].operator[](i);
-      std::cout<<"\n *size = "<<it_i.size()<<" GnssObservable is: "<<t.to_string();
-      for (const auto& it_j : it_i) {
-        std::cout<<"\n\t"<<it_j.first<<", "<<it_j.second;
-      }
-      ++i;
-    }
-  }
+  print_map(map, result);
+
+  // let's make some erronous examples, eg an empty map
+  std::map<ngpt::SATELLITE_SYSTEM, std::vector<GnssObservable>> map_er1;
+  std::cout<<"\n\nTrying with an empty map:";
+  result = rnx.set_read_map(map_er1);
+  print_map(map_er1, result);
+
+  // last observable is galileo!
+  map_er1[ngpt::SATELLITE_SYSTEM::gps] = std::vector<GnssObservable>{gc5q, gc3c, ec8q};
+  std::cout<<"\n\nTrying with an observable of different sat. sys.:";
+  result = rnx.set_read_map(map_er1);
+  print_map(map_er1, result);
+
 
   std::cout<<"\n";
   return 0;
