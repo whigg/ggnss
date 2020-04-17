@@ -755,6 +755,45 @@ noexcept
   return 0;
 }
 
+/// Read the next (following) satellite record block off from the RINEX stream.
+/// Here 'next' just means the next after the current stream's get position.
+/// So, the function will read in a block of satellite records, see what
+/// it is supposed to extract (this info is contained in the input map) and
+/// return the resolved observations in a vector.
+/// The info on what to actually read (per satellite system) is contained in the
+/// input map; this holds (per sat, system) a vector of vectors (one per 
+/// GnssObservable); each such vector contains one or more pairs of <index, coefs>
+/// to formulate the GnssObservable.
+/// So the function will first check the satellite and then check the mmap to
+/// see which columns we need to collect. It will formulate all GnssObservabe(s)
+/// for this sat. system and store the result in the output vector satobs;
+/// So, satobs will have REAL size equal to the number of satellites read and 
+/// resolved (which can obviously be smaller that number of satellites in epoch).
+/// Each entry will be a pair of <Satellite, vector<double>>, where the second 
+/// element is actually the GnssObservables collected; this internal vector will 
+/// have REAL size equal to the element of the corresponding sat. system in the
+/// input map. That is if satobs[i]=<G01, {20.e0, 21,e0 ,....}> the REAL size
+/// of the vector is equal to mmap[s].size()
+/// If any GnssObservable is absent in RINEX file or one of its elements is absent
+/// then it will hold the value RNXOBS_MISSING_VAL
+/// REAL size here means the ACTUAL SIZE OF RELEVANT DATA in a vector. E.g.,
+/// normally satobs will have a size larger than that (so that we don;t have to
+/// allocate). So, it size will be satobs.size() but it's REAL size will be
+/// 'sats'.
+///
+/// @param[in] mmap     Map where key is satellite system and values are a vector
+///                     with elements one vector per GnssObservation, containing
+///                     pairs of (col.index, factor).
+/// @param[out] satobs  Vector of results; aka pairs of Satellite and vector<double>
+///                     holding the observable values for each of the input
+///                     GnssObservables (as in mmap[satsys]). Only use the
+///                     values in range [0, sats)
+/// @param[out] sats    Actual number of satellites written in satobs vector
+///
+/// @warning
+///      * Please use the function ObservationRnx::initialize_epoch_vector to
+///        initialize a long enough output vector to pass in this function (as
+///        satobs). If this vector is not long enough it can cause problems.
 int
 ObservationRnx::read_next_epoch(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap, std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs, int& sats) noexcept
 {
