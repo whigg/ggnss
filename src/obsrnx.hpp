@@ -7,6 +7,7 @@
 #include "satsys.hpp"
 #include "antenna.hpp"
 #include "gnssobsrv.hpp"
+#include "satellite.hpp"
 #include "ggdatetime/dtcalendar.hpp"
 #ifdef DEBUG
 #include "ggdatetime/datetime_write.hpp"
@@ -95,6 +96,14 @@ public:
     bool skip_missing=false)
   const noexcept;
 
+  ///
+  int
+  read_next_epoch(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap, std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs, int& sats) noexcept;
+  
+  std::vector<std::pair<ngpt::Satellite, std::vector<double>>>
+  initialize_epoch_vector(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
+  const noexcept;
+
 private:
 
   /// @brief Read RINEX header; assign info
@@ -107,13 +116,18 @@ private:
     double& sec, int& flag, int& num_sats, double& rcvr_coff)
   noexcept;
 
+  /// @brief Collect values (actually GnssObservable values) from a satellite
+  ///        record line
   int
-  sat_epoch_collect(const std::vector<vecof_idpair>& sysobs, 
-    int& prn, std::vector<double>& vals)
+  sat_epoch_collect(const std::vector<vecof_idpair>& sysobs, int& prn, 
+    std::vector<double>& vals)
   const noexcept;
   
+  /// @brief Collect  
   int
-  collect_epoch(int numsats, std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
+  collect_epoch(int numsats, int& satscollected, 
+    std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap,
+    std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs)
   noexcept;
 
   /// @brief Resolve line(s) of type "SYS / # / OBS TYPES" as RINEX v3.04

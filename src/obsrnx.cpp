@@ -18,8 +18,8 @@ constexpr int MAX_HEADER_CHARS { 85 };
 /// Max header lines.
 constexpr int MAX_HEADER_LINES { 1000 };
 
-/// Max record characters (for a navigation data block)
-// constexpr int MAX_RECORD_CHARS { 128 };
+/// Max satellites in eopch
+constexpr int MAX_SAT_IN_EPOCH {80};
 
 /// Size of 'END OF HEADER' C-string.
 /// std::strlen is not 'constexr' so eoh_size can't be one either. Note however
@@ -610,7 +610,29 @@ const noexcept
   return ovec;
 }
 
-/// param[in] sysobs A vector that contains info to 
+/// Collect observation(s) values off from a satellite record line. The
+/// function will not read all values in line; it will only read and resolve
+/// the values in the indexes given in the input pairs. E.g., if we pass in
+/// the vector: {(0, 0.5), (6, 0.5)}, the function will return two values:
+/// 1st -> value at index 0 multiplied by 0.5
+/// 2nd -> value at index 6 multiplied by 0.5
+/// If any of the values to be collected hold RNXOBS_MISSING_VALUE, then the
+/// respective GnssObservable will also have the same value (aka 
+/// RNXOBS_MISSING_VALUE).
+///
+/// @param[in] sysobs A vector that contains info to collect, i.e. pairs of
+///                   index and coefficients. E.g. {(0, 0.5), (6, 0.5)}
+/// @param[out] prn   The PRN of the satellite
+/// @param[out] vals  A vector containing the observation values collected;
+///                   The size of this vector will be equal to the size of the 
+///                   input vector. 
+/// @return           An integer, denoting the following:
+///                   -1 : some observable is missing
+///                    0 : all ok
+///                   >1 : error
+/// @warning The function will not 'push_back' the collected values (in vector
+///          vals) but access them (and alter them) via operator '[]'. Hence,
+///          the vector vals should have enough size at input!
 int
 ObservationRnx::sat_epoch_collect(const std::vector<vecof_idpair>& sysobs, 
   int& prn, std::vector<double>& vals)
@@ -618,6 +640,11 @@ const noexcept
 {
   char tbuf[17];
   char* end;
+  int status=0;
+
+#ifdef DEBUG
+  assert(vals.size()>=sysobs.size());
+#endif
 
   std::memset(tbuf, '\0', 17);
   std::memcpy(tbuf, __buf+1, 2);
@@ -632,23 +659,76 @@ const noexcept
       std::size_t idx = pr.first;
       std::memcpy(tbuf, __buf+3+idx*16, 16);
       if (raw_obs.resolve(tbuf)) return 2;
-      obsval += raw_obs.__val * pr.second;
+      if (raw_obs.__val!=RNXOBS_MISSING_VAL) {
+        obsval += raw_obs.__val * pr.second;
+      } else {
+        --status;
+        obsval = RNXOBS_MISSING_VAL;
+      }
     }
     vals[k] = obsval; ++k;
   }
 
-  return 0;
+  return status;
 }
 
+/// Read and collect values from a satellite record block. The function will 
+/// read all lines (for the given epoch) and collect the values (per satellite)
+/// based on the input map.
+/// The stream should be at the start of the end of the epoch header line; hence
+/// the next line to read should be a satellite record line. We should already 
+/// know how many satellites there are in the epoch.
+/// What are we going to read? First of all, the function can read both GNSS
+/// raw observables (e.g. GPS-C1C) as well as linear combinations of these;
+/// actually the function reads GnssObservable(s) which is exactly that.
+/// The input vector contains pairs of index values and coefficients to read off
+/// observation values. For example, if the value of the input map for GPS is
+/// output_map[GPS] = {{(14, 1)}, {(0, 0.5), (6, 0.5)}}, when encountering a
+/// GPS satellite the function will read the respective index values (aka 14,
+/// 0 and 6) and use the respective coefficient factors to formulate two
+/// observation values.
+/// To construct the input map, see the function @see ObservationRnx::set_read_map
+///
+/// @param[in] numsats  The number of satellites that follow
+/// @param[out] satscollected Actual number of satellites for which we collected
+///                     observation values (stored in satobs)
+/// @param[in] mmap     Map where key is satellite system and values are a vector
+///                     with elements one vector per GnssObservation, containing
+///                     pairs of (col.index, factor).
+/// @param[out] satobs  The collected results; that is a vector of pairs of
+///                     type <Satellite, vector<double>> where for each satellite
+///                     we have the observation values in one-to-one correspondance
+///                     (in the same order) as in the mmap[SATSYS] vector. The
+///                     elements in range [0, satscollected) hold the results 
+///                     (indexes larger than satscollected hold garbage) 
+/// @warning 
+///        * The function will not 'push_back' the collected values (in vector
+///          satobs) but access them (and alter them) via iterators. Hence,
+///          the vector vals should have enough size at input!
+///        * If an observable has an empty value in the RINEX files (that is
+///          RNXOBS_MISSING_VAL) the observable will exist in the output
+///          vector (vals) but its value will still be RNXOBS_MISSING_VAL
+///        * The resulting vector may have size larger than the satellites
+///          actually read (the function does not erase/delete on satobs). Hence
+///          only use elements in range [0, satscollected)
 int
-ObservationRnx::collect_epoch(int numsats, std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
+ObservationRnx::collect_epoch(int numsats, int& satscollected, 
+  std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap,
+  std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs)
 noexcept
 {
   typedef typename std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>::iterator mmap_it;
+  using OutputVecIt = std::vector<std::pair<ngpt::Satellite, std::vector<double>>>::iterator;
+
+  satscollected=0;
+#ifdef DEBUG
+  assert(satobs.size()>=(std::size_t)numsats);
+#endif
   SATELLITE_SYSTEM s;
   int sat_it=0, prn;
-  std::vector<double> vals(this->max_obs(), 0e0); 
+  OutputVecIt ovec_it = satobs.begin();
 
+  // loop through every satellite in epoch
   while (sat_it<numsats) {
     // resolve satellite system
     __istream.getline(__buf, __buf_sz);
@@ -661,22 +741,26 @@ noexcept
     }
 
     // if satellite system is to be collected ....
+    int status=0;
     mmap_it it = mmap.end();
     if ((it = mmap.find(s))!=mmap.end()) {
-      if (sat_epoch_collect(mmap[s], prn, vals)) return 100;
+      if ((status=sat_epoch_collect(mmap[s], prn, ovec_it->second))>0) return 1;
+      Satellite sat(s, prn);
+      ovec_it->first = sat;
+      ++ovec_it;
+      ++satscollected;
     }
     ++sat_it;
   }
   return 0;
 }
 
-/*
 int
-ObservationRnx::read_next_epoch()
+ObservationRnx::read_next_epoch(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap, std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs, int& sats) noexcept
 {
-  std::vector<SATELLITE_SYSTEM> ssvec = {SATELLITE_SYSTEM::gps, SATELLITE_SYSTEM::glonass, SATELLITE_SYSTEM::beidou};
   int c,j;
-  if ( (c=__istream.peek()) != EOF ) {
+  sats=0;
+  if ((c=__istream.peek()) != EOF) {
     // if not EOF, read next line; it should be an epoche header line
     __istream.getline(__buf, __buf_sz);
     ngpt::modified_julian_day mjd;
@@ -684,8 +768,9 @@ ObservationRnx::read_next_epoch()
     int flag, num_sats;
     // resolve epoch header
     if ((j=__resolve_epoch_304__(__buf, mjd, sec, flag, num_sats, rcvr_coff))) return 20+j;
+    std::cout<<"\nDate: "<<mjd.as_underlying_type()<<"+"<<sec<<" Sats: "<<num_sats;
     // resolve observation block
-    if ((j=collect_epoch(num_sats, ssvec))) return 30+j;
+    if ((j=collect_epoch(num_sats, sats, mmap, satobs))) return 30+j;
   }
   if (__istream.eof()) {
     __istream.clear();
@@ -693,4 +778,15 @@ ObservationRnx::read_next_epoch()
   }
   return 0;
 }
-*/
+
+std::vector<std::pair<ngpt::Satellite, std::vector<double>>>
+ObservationRnx::initialize_epoch_vector(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
+const noexcept
+{
+  std::size_t max_obs=0, tmp;
+  for (const auto& it : mmap) if ((tmp=it.second.size())>max_obs) max_obs=tmp;
+  std::pair<Satellite, std::vector<double>> emptyp
+    {Satellite(), std::vector<double>(max_obs, RNXOBS_MISSING_VAL)};
+  std::vector<std::pair<ngpt::Satellite, std::vector<double>>> vec(MAX_SAT_IN_EPOCH, emptyp);
+  return vec;
+}

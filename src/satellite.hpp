@@ -27,11 +27,6 @@
 namespace ngpt
 {
 
-  int              __prn;     ///< PRN or slot number (GLONASS) or the
-                              ///< SVID number (Galileo),
-  int              __svn;     ///< SVN number (GPS), GLONASS number,
-                              ///< GSAT number (Galileo) or SVN number
-                              ///< (QZSS); blank (Compass, SBAS)
 /// @class Satellite
 /// This class is used to represent a GNSS satellite belonging to any GNSSystem
 /// Different GNSS have/use different identifiers for their constellations, so
@@ -57,6 +52,14 @@ public:
   Satellite(SATELLITE_SYSTEM s=SATELLITE_SYSTEM::mixed) noexcept
     : __system(s)
     , __prn(-1)
+    , __svn(-1)
+    , __antenna()
+    {};
+  
+  /// @brief Default constructor
+  Satellite(SATELLITE_SYSTEM s, int PRN) noexcept
+    : __system(s)
+    , __prn(PRN)
     , __svn(-1)
     , __antenna()
     {};
