@@ -787,8 +787,13 @@ noexcept
 /// @param[out] satobs  Vector of results; aka pairs of Satellite and vector<double>
 ///                     holding the observable values for each of the input
 ///                     GnssObservables (as in mmap[satsys]). Only use the
-///                     values in range [0, sats)
+///                     values in range [0, sats). To create this vector, see
+///                     ObservationRnx::initialize_epoch_vector()
 /// @param[out] sats    Actual number of satellites written in satobs vector
+/// @return An integer as:
+///                     * -1 : EOF encountered
+///                     *  0 : All ok
+///                     * >0 : ERROR do not use the output vector satobs
 ///
 /// @warning
 ///      * Please use the function ObservationRnx::initialize_epoch_vector to
@@ -818,6 +823,12 @@ ObservationRnx::read_next_epoch(std::map<SATELLITE_SYSTEM, std::vector<vecof_idp
   return 0;
 }
 
+/// This function will return a vector with a big enough size to read all epochs
+/// in the RINEX file. Before start reading epochs in a RINEX, call this function
+/// with the input map that will be used for reading, and get the output vector
+/// to then use in the function ObservationRnx::read_next_epoch()
+/// @param[in] mmap  The map to use for reading this instance
+/// @return a vector that can hold any epoch's satellite records.
 std::vector<std::pair<ngpt::Satellite, std::vector<double>>>
 ObservationRnx::initialize_epoch_vector(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
 const noexcept

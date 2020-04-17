@@ -96,10 +96,11 @@ public:
     bool skip_missing=false)
   const noexcept;
 
-  ///
+  /// @brief Collect all satellite observation for next epoch based on input map
   int
   read_next_epoch(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap, std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs, int& sats) noexcept;
   
+  /// @brief Initialize a big enough vector to hold any epoch in current instance
   std::vector<std::pair<ngpt::Satellite, std::vector<double>>>
   initialize_epoch_vector(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap)
   const noexcept;
