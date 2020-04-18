@@ -547,6 +547,15 @@ const noexcept
       }
     }
   }
+
+  // before returning check for empty keys and erase them
+  for (auto cit=resmap.cbegin(); cit!=resmap.cend();) {
+    if (!cit->second.size()) {
+      resmap.erase(cit++);
+    } else {
+      ++cit;
+    }
+  }
   return resmap;
 }
 
@@ -584,7 +593,7 @@ const noexcept
   // vector of ObservationCodes for given sat. sys. in this RINEX
   auto it = __obstmap.find(sys);
   if (it==__obstmap.end()) {
-    std::cerr<<"\n[ERROR] ObservationRnx::obs_getter() Rinex file does not contain obsrvations for satellite system: "<<satsys_to_char(sys);
+    std::cerr<<"\n[WARNING] ObservationRnx::obs_getter() Rinex file does not contain obsrvations for satellite system: "<<satsys_to_char(sys);
     status=-1; return vecof_idpair{};
   }
   const std::vector<ObservationCode>& satsys_codes = it->second;
@@ -599,7 +608,7 @@ const noexcept
     // for every __ObsPart in correlate an ObservationCode
     auto j = std::find(satsys_codes.begin(), satsys_codes.end(), i.type().code());
     if (j==satsys_codes.end()) {
-      std::cerr<<"\n[ERROR] Cannot find observable in RINEX ("
+      std::cerr<<"\n[WARNING] Cannot find observable in RINEX ("
         <<i.type().code().to_string()<<")";
       status=-2; return vecof_idpair{};
     }
@@ -653,17 +662,22 @@ const noexcept
   
   RawRnxObs__ raw_obs;
   int k=0;
-  for (const auto& obsrv : sysobs) {
+  std::size_t len = std::strlen(__buf);
+  for (const auto& obsrv : sysobs) { // For every observable in vector
     double obsval = 0e0;
-    for (const auto& pr : obsrv) {
-      std::size_t idx = pr.first;
-      std::memcpy(tbuf, __buf+3+idx*16, 16);
-      if (raw_obs.resolve(tbuf)) return 2;
-      if (raw_obs.__val!=RNXOBS_MISSING_VAL) {
-        obsval += raw_obs.__val * pr.second;
+    for (const auto& pr : obsrv) { // for every raw obs. in observable
+      std::size_t idx = pr.first*16 +3;
+      if (len>=idx+16) { // line ends before column of observable
+        std::memcpy(tbuf, __buf+idx, 16);
+        if (raw_obs.resolve(tbuf)) return 2;
+        if (raw_obs.__val!=RNXOBS_MISSING_VAL) {
+          obsval += raw_obs.__val * pr.second;
+        } else {
+          --status;
+          obsval = RNXOBS_MISSING_VAL;
+        }
       } else {
-        --status;
-        obsval = RNXOBS_MISSING_VAL;
+        raw_obs.__val = obsval = RNXOBS_MISSING_VAL;
       }
     }
     vals[k] = obsval; ++k;

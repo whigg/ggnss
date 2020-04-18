@@ -57,7 +57,14 @@ int main(int argc, char* argv[])
 
   // let's see what we are going to collect
   //std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
-  auto sat_obs_map = rnx.set_read_map(map);
+  auto sat_obs_map = rnx.set_read_map(map, true);
+  if (sat_obs_map.empty()) {
+    std::cerr<<"\nWarning!! empty map!";
+  } else {
+    for (const auto& m : sat_obs_map) {
+      if (!m.second.size()) std::cerr<<"\nWarning empty vector for satellite sys. "<<ngpt::satsys_to_char(m.first);
+    }
+  }
 
   // inilialize vector to hold results
   // std::vector<std::pair<ngpt::Satellite, std::vector<double>>>
@@ -68,12 +75,12 @@ int main(int argc, char* argv[])
   int epoch_counter=0, satsnum;
   do {
     status = rnx.read_next_epoch(sat_obs_map, sat_obs_vec, satsnum);
-    // for (auto const& it : sat_obs_vec) {
-    for (auto it=sat_obs_vec.begin(); it<sat_obs_vec.begin()+satsnum; ++it) {
+    std::cout<<"\n\t-->collected "<<satsnum<<" satellites";
+    /*for (auto it=sat_obs_vec.begin(); it<sat_obs_vec.begin()+satsnum; ++it) {
       std::cout<<"\n\t"<<satsys_to_char(it->first.system())<<it->first.prn()<<" : ";
       std::size_t hm = map[it->first.system()].size();
       for (std::size_t i=0; i<hm; i++) std::cout<<it->second.operator[](i)<<" ";
-    }
+    }*/
     ++epoch_counter;
   } while (!status);
   std::cout<<"\nDone reading; last status: "<<status;
