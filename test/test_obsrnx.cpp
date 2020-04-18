@@ -36,6 +36,7 @@ int main(int argc, char* argv[])
   ObservationCode _ec6c("C6C");
   ObservationCode _ec7q("C7Q");
   ObservationCode _ec8q("C8Q");
+  ObservationCode _ec5x("C5X");
 
   GnssObservable gc5q(ngpt::SATELLITE_SYSTEM::gps, _gc5q, 1e0);
   GnssObservable gc3c(ngpt::SATELLITE_SYSTEM::gps, _gc1c, .5e0);
@@ -49,11 +50,12 @@ int main(int argc, char* argv[])
                  ec3c.add(ngpt::SATELLITE_SYSTEM::galileo, _ec7q, .3e0);
                  ec3c.add(ngpt::SATELLITE_SYSTEM::galileo, _ec8q, .3e0);
   GnssObservable ec8q(ngpt::SATELLITE_SYSTEM::galileo, _ec8q, 1e0);
+  GnssObservable ec5x(ngpt::SATELLITE_SYSTEM::galileo, _ec5x, 1e0);
 
   std::map<ngpt::SATELLITE_SYSTEM, std::vector<GnssObservable>> map;
   map[ngpt::SATELLITE_SYSTEM::gps] = std::vector<GnssObservable>{gc5q, gc3c};
   map[ngpt::SATELLITE_SYSTEM::glonass] = std::vector<GnssObservable>{rc1p, rc3c};
-  map[ngpt::SATELLITE_SYSTEM::galileo] = std::vector<GnssObservable>{ec1c, ec3c, ec8q};
+  map[ngpt::SATELLITE_SYSTEM::galileo] = std::vector<GnssObservable>{ec1c, ec3c, ec8q, ec5x};
 
   // let's see what we are going to collect
   //std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
@@ -73,14 +75,23 @@ int main(int argc, char* argv[])
   // go on and collect every epoch ....
   int status;
   int epoch_counter=0, satsnum;
+  ngpt::modified_julian_day mjd;
+  double secday;
   do {
-    status = rnx.read_next_epoch(sat_obs_map, sat_obs_vec, satsnum);
-    std::cout<<"\n\t-->collected "<<satsnum<<" satellites";
+    status = rnx.read_next_epoch(sat_obs_map, sat_obs_vec, satsnum, mjd, secday);
+    // std::cout<<"\n\t-->collected "<<satsnum<<" satellites";
     /*for (auto it=sat_obs_vec.begin(); it<sat_obs_vec.begin()+satsnum; ++it) {
       std::cout<<"\n\t"<<satsys_to_char(it->first.system())<<it->first.prn()<<" : ";
       std::size_t hm = map[it->first.system()].size();
       for (std::size_t i=0; i<hm; i++) std::cout<<it->second.operator[](i)<<" ";
     }*/
+    for (auto it=sat_obs_vec.begin(); it<sat_obs_vec.begin()+satsnum; ++it) {
+      if (it->first.system()==SATELLITE_SYSTEM::galileo && it->first.prn()==12) {
+        printf("\n%15.5f", secday);
+        std::size_t hm = map[it->first.system()].size();
+        for (std::size_t i=0; i<hm; i++) printf(" %20.5f",it->second.operator[](i));
+      }
+    }
     ++epoch_counter;
   } while (!status);
   std::cout<<"\nDone reading; last status: "<<status;

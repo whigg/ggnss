@@ -814,19 +814,17 @@ noexcept
 ///        initialize a long enough output vector to pass in this function (as
 ///        satobs). If this vector is not long enough it can cause problems.
 int
-ObservationRnx::read_next_epoch(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap, std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs, int& sats) noexcept
+ObservationRnx::read_next_epoch(std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>& mmap, std::vector<std::pair<ngpt::Satellite, std::vector<double>>>& satobs, int& sats, ngpt::modified_julian_day& mjd, double& secofday) noexcept
 {
   int c,j;
   sats=0;
   if ((c=__istream.peek()) != EOF) {
     // if not EOF, read next line; it should be an epoche header line
     __istream.getline(__buf, __buf_sz);
-    ngpt::modified_julian_day mjd;
-    double sec, rcvr_coff;
+    double rcvr_coff;
     int flag, num_sats;
     // resolve epoch header
-    if ((j=__resolve_epoch_304__(__buf, mjd, sec, flag, num_sats, rcvr_coff))) return 20+j;
-    std::cout<<"\nDate: "<<mjd.as_underlying_type()<<"+"<<sec<<" Sats: "<<num_sats;
+    if ((j=__resolve_epoch_304__(__buf, mjd, secofday, flag, num_sats, rcvr_coff))) return 20+j;
     // resolve observation block
     if ((j=collect_epoch(num_sats, sats, mmap, satobs))) return 30+j;
   }
