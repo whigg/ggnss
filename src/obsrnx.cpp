@@ -482,7 +482,17 @@ noexcept
 /// we need the {(0, 0.5), (6, 0.5)} vector, which means COL#0*0.5 and 
 /// COL#6*0.5
 /// We actually have to columns (to read) and coefficients to formulate the
-/// input GnssObservable(s)
+/// input GnssObservable(s).
+///
+/// @note Note that the input map (inmap) may change if some observables are
+///       not found in the RINEX file (and the skip_missing flag is set to
+///       true). For example, if we requested the folowing:
+///       inmap[GPS]= {G::C5Q*1.000000, G::C1C*0.500000+G::C2W*0.500000}
+///       but the observable C2W does not exist, then at output the vector will
+///       be:
+///       inmap[GPS]= {G::C5Q*1.000000}
+///       If skip_missing is false then this will never happen as a missing 
+///       observable will trigger an error and an empty map will be returned
 /// 
 /// In case of error, an empty map is returned (holding NO satellite systems)
 ///
@@ -500,7 +510,7 @@ noexcept
 ///          combination, the respective vector's size will be > 1). Example:
 ///          map[GAL] = {{(0, 1)}, {(4, 0.3), (12, 0.3), (16, 0.3)}, {(16, 1)}}
 std::map<ngpt::SATELLITE_SYSTEM, std::vector<ObservationRnx::vecof_idpair>>
-ObservationRnx::set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap, bool skip_missing)
+ObservationRnx::set_read_map(std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap, bool skip_missing)
 const noexcept
 {
   typedef std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>> ResultType;
@@ -513,17 +523,26 @@ const noexcept
   // Loop through all elements of input map, aka:
   // inobs->first  : SATELLITE_SYSTEM
   // inobs->second : std::vector<GnssObservable>
-  for (auto const& inobs : inmap) {
+  for (auto& inobs : inmap) {
     SATELLITE_SYSTEM s;
     // Loop through all elements of std::vector<GnssObservable> for a sat sys
-    for (auto const& i : inobs.second) {
+    for (auto i=inobs.second.begin(); i!=inobs.second.end();) {
+#ifdef DEBUG
+      std::cout<<"\n[DEBUG] Resolving observable: "<<i->to_string();
+      auto __it = resmap.find(inobs.first);
+      if (__it==resmap.end()) {
+        std::cout<<"\n[DEBUG(1)] Map empty for sat sys "<<satsys_to_char(inobs.first);
+      } else {
+        std::cout<<"\n[DEBUG(1)] Map["<<satsys_to_char(inobs.first)<<"] size is "<<__it->second.size();
+      }
+#endif
       // for every GnssObservable get a vector of vectors of pairs, e.g.
       // {(4, 0.3), (12, 0.3), (16, 0.3)}
-      auto newvec = this->obs_getter(i, s, status);
+      auto newvec = this->obs_getter(*i, s, status);
       // inapropriate sat sys or status>0
       if (s!=inobs.first || status>0) {
         std::cerr<<"\n[ERROR] ObservationRnx::set_read_map() Failed to set getter for"
-          <<" observable: "<<i.to_string();
+          <<" observable: "<<i->to_string();
         return ResultType{};
       }
       // status is ok; add vector
@@ -534,17 +553,34 @@ const noexcept
         } else {
           resmap[s].emplace_back(newvec);
         }
+        ++i;
+        std::cout<<"\n[DEBUG] Added vector for observable";
       // status is < 0 (aka something is missing, hence got an empty vector
+      // if we don;t exit with error, then this GnssObservable must be removed
+      // from the input map; otherwise the order of the input and output maps
+      // will not be correct!
       } else {
         std::cerr<<"\n[WARNING] ObservationRnx::set_read_map() Cannot handle Observable:"
-          <<i.to_string();
+          <<i->to_string();
         if (skip_missing) {
           std::cerr<<"\n          Missing either Satellite System or Observation Type(s)";
           std::cerr<<"\n          Observable will be ignored!";
+          i=inobs.second.erase(i);
+          std::cout<<"\n[DEBUG] Did not add vector for observable";
         } else {
           return ResultType{};
         }
       }
+#ifdef DEBUG
+      __it = resmap.find(inobs.first);
+      if (__it==resmap.end()) {
+        std::cout<<"\n[DEBUG(2)] Map empty for sat sys "<<satsys_to_char(inobs.first);
+      } else {
+        std::cout<<"\n[DEBUG(2)] Map["<<satsys_to_char(inobs.first)<<"] size is "<<__it->second.size();
+      }
+#endif
+      // have you augmented the itertaor ??
+      // ++i;
     }
   }
 

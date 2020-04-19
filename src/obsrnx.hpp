@@ -92,7 +92,7 @@ public:
 
   /// @brief Set map for reading RINEX observations
   std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
-  set_read_map(const std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap, 
+  set_read_map(/*const */std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>>& inmap, 
     bool skip_missing=false)
   const noexcept;
 
