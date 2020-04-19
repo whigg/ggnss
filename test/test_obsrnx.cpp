@@ -59,12 +59,22 @@ int main(int argc, char* argv[])
 
   // let's see what we are going to collect
   //std::map<SATELLITE_SYSTEM, std::vector<vecof_idpair>>
+  std::cout<<"\nHere is the input map: ";
+  for (auto const& m : map) {
+    std::cout<<"\n\tSystem: "<<ngpt::satsys_to_char(m.first);
+    for (const auto& v : m.second) std::cout<<" "<<v.to_string();
+  }
   auto sat_obs_map = rnx.set_read_map(map, true);
   if (sat_obs_map.empty()) {
     std::cerr<<"\nWarning!! empty map!";
   } else {
     for (const auto& m : sat_obs_map) {
       if (!m.second.size()) std::cerr<<"\nWarning empty vector for satellite sys. "<<ngpt::satsys_to_char(m.first);
+    }
+    std::cout<<"\nHere is the output map: ";
+    for (auto const& m : map) {
+      std::cout<<"\n\tSystem: "<<ngpt::satsys_to_char(m.first);
+      for (const auto& v : m.second) std::cout<<" "<<v.to_string();
     }
   }
 
