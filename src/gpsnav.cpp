@@ -241,6 +241,12 @@ NavDataFrame::ura() const noexcept
   return ura_meters;
 }
 
+/// Brief see Rinex 3.04 par. 6.12
 int
 NavDataFrame::sv_health() const noexcept
 {return static_cast<int>(data__[24]);}
+
+/// Brief see Rinex 3.04 par. 6.11
+int
+NavDataFrame::fit_interval() const noexcept
+{return static_cast<int>(data__[28]);}

@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
   int j=0, block_nr=0;
   while (!j) {
     j = nav.read_next_record(block);
-    if (block.system()==SATELLITE_SYSTEM::gps) std::cout<<"\n[URA] index: "<<block.data(23)<<" Health: "<<block.sv_health()<<" URA: "<<block.ura()<<" m.";
+    if (block.system()==SATELLITE_SYSTEM::gps) std::cout<<"\n[URA] index: "<<block.data(23)<<" Health: "<<block.sv_health()<<" Fit Inrtvl.: "<<block.fit_interval()<<" URA: "<<block.ura()<<" m.";
     block_nr++;
   }
   std::cout<<"\n# Read "<<block_nr<<" data blocks";

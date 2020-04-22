@@ -218,3 +218,9 @@ const noexcept
 
   return 0;
 }
+
+float
+NavDataFrame::sisa() const noexcept {return static_cast<float>(data__[23]);}
+
+int
+NavDataFrame::iod_nav() const noexcept {return static_cast<int>(data__[3]);}

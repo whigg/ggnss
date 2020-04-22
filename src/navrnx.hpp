@@ -68,6 +68,11 @@ public:
   int
   bds_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
+  
+  int
+  glo_ecef(double t_insod, double tb_sod, double* state)
+  const noexcept;
+  
 
   /// @brief GPS time of ephemeris to datetime<T> instance
   ///
@@ -164,10 +169,6 @@ public:
       ngpt::cast_to<seconds, T>(seconds(sod_tb)));
   }
 
-  int
-  glo_ecef(double t_insod, double tb_sod, double* state)
-  const noexcept;
-  
   int
   gps_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
   
@@ -318,6 +319,10 @@ public:
   // URA for gps
   float ura() const noexcept;
   int sv_health() const noexcept;
+  int fit_interval() const noexcept;
+
+  float sisa() const noexcept;
+  int iod_nav() const noexcept;
 
 private:
   SATELLITE_SYSTEM              sys__{};     ///< Satellite system
