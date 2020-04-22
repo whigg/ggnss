@@ -45,6 +45,10 @@ public:
   NavDataFrame() noexcept
   {};
 
+  /// @brief Assignment operator
+  // NavDataFrame&
+  // operator=(const NavDataFrame& other) noexcept;
+  
   /// @brief Set from a RINEX 3.x navigation data block
   int
   set_from_rnx3(std::ifstream& inp) noexcept;
@@ -293,7 +297,7 @@ public:
   data(int idx) noexcept { return data__[idx]; }
 
   SATELLITE_SYSTEM
-  sys() const noexcept { return sys__; }
+  system() const noexcept { return sys__; }
 
   int
   prn() const noexcept { return prn__; }
@@ -310,9 +314,11 @@ public:
   void
   set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}
 
-  SATELLITE_SYSTEM
-  satsys() const noexcept {return sys__;}
-  
+  /* NEW FUNCTIONS */
+  // URA for gps
+  float ura() const noexcept;
+  int sv_health() const noexcept;
+
 private:
   SATELLITE_SYSTEM              sys__{};     ///< Satellite system
   int                           prn__{};     ///< PRN as in Rinex 3x

@@ -220,3 +220,27 @@ const noexcept
 
   return 0;
 }
+
+/// @brief URA SV accuracy (meters)
+/// Compute User Range Accuracy for given SV. 
+float
+NavDataFrame::ura() const noexcept
+{
+  float ura_index = data__[23];
+  float ura_meters = std::numeric_limits<float>::max();
+
+  if (ura_index<=6) {
+    ura_meters = std::pow(2, 1e0+ura_index/2e0);
+    ura_meters = static_cast<float>((long)(std::round(ura_meters*10e0)))/10e0;
+  } else if (ura_index<15) {
+    ura_meters = std::pow(2e0, ura_index-2e0);
+    ura_meters = static_cast<float>((long)(std::round(ura_meters*10e0)))/10e0;
+  } else {
+    std::cerr<<"\n[WARNING] URA index is "<<ura_index<<" use satellite at your own risk!";
+  }
+  return ura_meters;
+}
+
+int
+NavDataFrame::sv_health() const noexcept
+{return static_cast<int>(data__[24]);}

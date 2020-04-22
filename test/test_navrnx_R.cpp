@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
   while (!j) {
     j = nav.read_next_record(block);
     block_nr++;
-    if (block.prn()==PRN && block.satsys()==SATELLITE_SYSTEM::glonass) ++block_prn_nr;
+    if (block.prn()==PRN && block.system()==SATELLITE_SYSTEM::glonass) ++block_prn_nr;
   }
   std::cout<<"\n# Read "<<block_nr<<" data blocks";
   std::cout<<"\n# Last status was: "<<j;

@@ -528,6 +528,7 @@ const noexcept
     // Loop through all elements of std::vector<GnssObservable> for a sat sys
     for (auto i=inobs.second.begin(); i!=inobs.second.end();) {
 #ifdef DEBUG
+      /*
       std::cout<<"\n[DEBUG] Resolving observable: "<<i->to_string();
       auto __it = resmap.find(inobs.first);
       if (__it==resmap.end()) {
@@ -535,6 +536,7 @@ const noexcept
       } else {
         std::cout<<"\n[DEBUG(1)] Map["<<satsys_to_char(inobs.first)<<"] size is "<<__it->second.size();
       }
+      */
 #endif
       // for every GnssObservable get a vector of vectors of pairs, e.g.
       // {(4, 0.3), (12, 0.3), (16, 0.3)}
@@ -554,7 +556,6 @@ const noexcept
           resmap[s].emplace_back(newvec);
         }
         ++i;
-        std::cout<<"\n[DEBUG] Added vector for observable";
       // status is < 0 (aka something is missing, hence got an empty vector
       // if we don;t exit with error, then this GnssObservable must be removed
       // from the input map; otherwise the order of the input and output maps
@@ -566,18 +567,19 @@ const noexcept
           std::cerr<<"\n          Missing either Satellite System or Observation Type(s)";
           std::cerr<<"\n          Observable will be ignored!";
           i=inobs.second.erase(i);
-          std::cout<<"\n[DEBUG] Did not add vector for observable";
         } else {
           return ResultType{};
         }
       }
 #ifdef DEBUG
+      /*
       __it = resmap.find(inobs.first);
       if (__it==resmap.end()) {
         std::cout<<"\n[DEBUG(2)] Map empty for sat sys "<<satsys_to_char(inobs.first);
       } else {
         std::cout<<"\n[DEBUG(2)] Map["<<satsys_to_char(inobs.first)<<"] size is "<<__it->second.size();
       }
+      */
 #endif
       // have you augmented the itertaor ??
       // ++i;

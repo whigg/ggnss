@@ -320,3 +320,17 @@ NavigationRnx::rewind() noexcept
 {
   __istream.seekg(__end_of_head);
 }
+
+/*
+NavDataFrame&
+NavDataFrame::operator=(const NavDataFrame& other) noexcept
+{
+  if (this!=&other) {
+    sys__ = other.sys__;
+    prn__ = other.prn__;
+    toc__ = other.toc__;
+    std::memcpy(data__, other.data__, sizeof(double)*31);
+  }
+  return *this;
+}
+*/

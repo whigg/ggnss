@@ -23,9 +23,10 @@ int main(int argc, char* argv[])
   // try reading through all of the file
   NavigationRnx nav(argv[1]);
   NavDataFrame  block;
-  int j = 0, block_nr = 0;
+  int j=0, block_nr=0;
   while (!j) {
     j = nav.read_next_record(block);
+    if (block.system()==SATELLITE_SYSTEM::gps) std::cout<<"\n[URA] index: "<<block.data(23)<<" Health: "<<block.sv_health()<<" URA: "<<block.ura()<<" m.";
     block_nr++;
   }
   std::cout<<"\n# Read "<<block_nr<<" data blocks";
