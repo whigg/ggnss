@@ -58,9 +58,10 @@ constexpr double J2_GLO = 1082625.75e-9;
 constexpr double OMEGA_GLO = 7.2921151467e-5; // rad/s
 
 int
-NavDataFrame::glo_dtsv(double t_mt, double toe_mt, double& dtsv)
+NavDataFrame::glo_dtsv(double t_mt, double& dtsv)
 const noexcept
 {
+  const double toe_mt = toe__.sec().to_fractional_seconds();
   double deltat = t_mt - toe_mt - std::round((t_mt-toe_mt)/86400e0)*86400e0;
   dtsv = data__[0] + data__[1]*deltat;
   return 0;
@@ -127,9 +128,9 @@ noexcept
   xdot[0] = x[3];
   xdot[1] = x[4];
   xdot[2] = x[5];
-  xdot[3]=(c+omg2)*x[0]+2.0*OMEGA_GLO*x[4]+acc[0];
-  xdot[4]=(c+omg2)*x[1]-2.0*OMEGA_GLO*x[3]+acc[1];
-  xdot[5]=(c-2.0*a)*x[2]+acc[2];
+  xdot[3]=(c+omg2)*x[0]+2e0*OMEGA_GLO*x[4]+acc[0];
+  xdot[4]=(c+omg2)*x[1]-2e0*OMEGA_GLO*x[3]+acc[1];
+  xdot[5]=(c-2e0*a)*x[2]+acc[2];
   
   return;
 }
@@ -282,13 +283,15 @@ noexcept
 /// @cite GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of 
 ///       mass position and velocity vector components using ephemeris data"
 int
-NavDataFrame::glo_ecef(double t_sod, double tb_sec, double* state) 
+NavDataFrame::glo_ecef(double t_sec, double* state) 
 const noexcept
 {
   int status = 0;
-  if (std::abs(tb_sec-t_sod)>15*60e0) {
+
+  const double toe_sec = toe__.sec().to_fractional_seconds();
+  if (std::abs(t_sec-toe_sec)>15*60e0) {
     std::cerr<<"\n[WARNING] NavDataFrame::glo_ecef() Time interval too large!"
-      <<"abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
+      <<"abs("<<t_sec<<" - "<<toe_sec<<") > "<<15*60e0<<" sec";
     status = -1;
   }
 
@@ -306,21 +309,21 @@ const noexcept
   acc[2] = data__[13];
   
   // quick return if tb == ti
-  if (t_sod == tb_sec) {
+  if (toe_sec==t_sec) {
     std::copy(x, x+6, state);
     return status;
   }
 
   double k1[6], k2[6], k3[6], k4[6];
   double ytmp[6], yti[6];
-  double h = t_sod>tb_sec?h_step:-h_step;
-  double ti= tb_sec;
-  double t_lim = t_sod-std::round((t_sod-tb_sec)/86400)*86400;
+  double h = t_sec>toe_sec?h_step:-h_step;
+  double ti= toe_sec;
+  double t_lim = t_sec-std::round((t_sec-toe_sec)/86400)*86400;
   int    max_it=0;
   std::copy(x, x+6, yti);
   // Perform Runge-Kutta 4th 
   // while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
-  while ( h>0?ti<t_lim:ti>t_lim && ++max_it<1500) {
+  while (h>0?ti<t_lim:ti>t_lim && ++max_it<1500) {
     // compute k1
     glo_state_deriv(yti, acc, k1);
     // compute k2
@@ -339,7 +342,7 @@ const noexcept
   }
   if (max_it>=1500) {
     std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() h="<<h<<", from "
-      <<tb_sec<<" to "<<t_lim<<" last t="<<ti;
+      <<toe_sec<<" to "<<t_lim<<" last t="<<ti;
     return 10;
   }
 

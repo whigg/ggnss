@@ -160,6 +160,18 @@ NavDataFrame::set_from_rnx3(std::ifstream& inp) noexcept
     for (int i : {3,4,5,7,8,9,11,12,13}) data__[i]*=1e3;
   }
 
+  // set ToE
+#ifdef DEBUG
+  // assert we don't have fractional seconds!
+  if (sys__==SATELLITE_SYSTEM::glonass) assert(std::abs(data__[2]-(int)data__[2])<1e-15);
+  if (sys__==SATELLITE_SYSTEM::gps || sys__==SATELLITE_SYSTEM::galileo 
+    || sys__==SATELLITE_SYSTEM::beidou) assert(std::abs(data__[11]-(int)data__[11])<1e-15);
+#endif
+  if (sys__==SATELLITE_SYSTEM::gps || sys__==SATELLITE_SYSTEM::glonass ||
+      sys__==SATELLITE_SYSTEM::galileo || sys__==SATELLITE_SYSTEM::beidou) {
+    toe__ = this->toe2date<ngpt::seconds>();
+  }
+
   return 0;
 }
 

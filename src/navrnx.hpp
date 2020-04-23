@@ -11,32 +11,6 @@
 namespace ngpt
 {
 
-/// QZSS:       data__[0]  : Time of Clock
-///             data__[0]  : SV clock bias in seconds
-///             data__[1]  : SV clock drift in m/sec
-///             data__[2]  : SV clock drift rate in m/sec^2
-///             data__[x]  : IODE Issue of Data, Ephemeris
-///             data__[x]  : Crs(meters)
-///             data__[x]  : Delta n (radians/sec)
-///             data__[x]  : M0 (radians)
-/// SBAS:       data__[0]  : Time of Clock in GPS time 
-///             data__[0]  : SV clock bias in sec, aka aGf0
-///             data__[1]  : SV relative frequency bias, aka aGf1
-///             data__[2]  : Transmission time of message (start of the 
-///                          message) in GPS seconds of the week
-///             data__[x]  : Satellite position X (km)
-///             data__[x]  : velocity X dot (km/sec)
-///             data__[x]  : X acceleration (km/sec2)
-///             data__[x]  : Health:SBAS:See Section 8.3.3 bit mask for:
-///                          health, health availability and User Range Accuracy. 
-/// IRNSS:      data__[0]  : Time of Clock in IRNSS time
-///             data__[0]  : SV clock bias in seconds
-///             data__[1]  : SV clock drift in m/sec
-///             data__[2]  : SV clock drift rate in m/sec^2
-///             data__[x]  : IODEC Issue of Data, Ephemeris and Clock
-///             data__[x]  : Crs(meters)
-///             data__[x]  : Deltan (radians/sec)
-///             data__[x]  : M0(radians)
 class NavDataFrame
 {
 public:
@@ -56,33 +30,53 @@ public:
   /// @brief get SV coordinates (WGS84) from navigation block
   /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   int
-  gps_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
+  gps_ecef(double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
   /// @brief get SV coordinates (WGS84) from navigation block
   /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   int
-  gal_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
+  gal_ecef(double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
   /// @brief get SV coordinates (WGS84) from navigation block
   /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
   int
-  bds_ecef(double toe_sec, double t_sec, double* state, double* Ek=nullptr)
+  bds_ecef(double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
   
   int
-  glo_ecef(double t_insod, double tb_sod, double* state)
+  glo_ecef(double tb_sod, double* state)
   const noexcept;
   
+
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+    toe2date() const
+  {
+    switch (this->sys__) {
+      case (SATELLITE_SYSTEM::gps)    : return gps_toe2date<T>();
+      case (SATELLITE_SYSTEM::glonass): return glo_toe2date<T>();
+      case (SATELLITE_SYSTEM::galileo): return gal_toe2date<T>();
+      case (SATELLITE_SYSTEM::beidou) : return bds_toe2date<T>();
+      case (SATELLITE_SYSTEM::sbas)   :
+      case (SATELLITE_SYSTEM::qzss)   :
+      case (SATELLITE_SYSTEM::irnss)  :
+      case (SATELLITE_SYSTEM::mixed)  :
+        std::cerr<<"\n[ERROR] NavDataFrame::toe2date() Cannot handle satellite system: "<<satsys_to_char(sys__);
+        throw std::runtime_error("ERROR] NavDataFrame::toe2date() Cannot handle satellite system");
+    }
+    return datetime<T>::min();
+  }
 
   /// @brief GPS time of ephemeris to datetime<T> instance
   ///
   /// Transform Time_of_Ephemeris from gps_week and sec of gps week to a valid
   /// datetime<T> instance.
-  template<typename T,
-    typename = std::enable_if_t<T::is_of_sec_type>
-    >
+  /// TimeSystem is GPST
+  template<typename T>
     ngpt::datetime<T>
-    gps__toe2date() const noexcept
+    gps_toe2date() const noexcept
   {
     ngpt::gps_week wk (static_cast<int>(data__[21]));
     ngpt::seconds  sc (static_cast<long>(data__[11]));
@@ -93,31 +87,27 @@ public:
   ///
   /// Transform Time_of_Ephemeris from gst_week and sec of GST week to a valid
   /// datetime<T> instance.
+  /// TimeSystem is Galileo System Time (GST)
   /// 
   /// @warning In RINEX v3.x, GAL Week number is actually GPS Week! In the
   ///          RINEX specifications, it is noted that:
   ///          "The GAL week number is a continuous number, aligned to (and 
   ///          hence identical to) the continuous GPS week number used in the 
   ///          RINEX navigation message files."
-  template<typename T,
-    typename = std::enable_if_t<T::is_of_sec_type>
-    >
+  template<typename T>
     ngpt::datetime<T>
-    gal__toe2date() const noexcept
-  {
-    return this->gps__toe2date<T>();
-  }
+    gal_toe2date() const noexcept
+  {return this->gps_toe2date<T>();}
 
   /// @brief BDS time of ephemeris to datetime<T> instance
   ///
-  /// Transform Time_of_Ephemeris from gst_week and sec of BDS week to a valid
-  /// datetime<T> instance.
-  /// 
-  template<typename T,
-    typename = std::enable_if_t<T::is_of_sec_type>
-    >
+  /// Transform Time_of_Ephemeris from bdt_week and sec of BDT week to a valid
+  /// datetime<T> instance. Note that BDT started at zero at 1-Jan-2006 (hence
+  /// GPS Week 1356).
+  /// TimeSystem is BDS Time (BDT) System
+  template<typename T>
     ngpt::datetime<T>
-    bds__toe2date() const noexcept
+    bds_toe2date() const noexcept
   {
     ngpt::gps_week wk (static_cast<int>(data__[21])+1356L);
     ngpt::seconds  sc (static_cast<long>(data__[11]));
@@ -139,47 +129,80 @@ public:
   ///    (Tb_sw)
   /// 3. resulting date is ToC.MJD - (ToC_dw - Tb_dw) and time Tb_sw
   /// 
-  /// @param[in] to_MT If set to true, then the resulting datetime instance will
-  ///                  be in Moscow UTC time, aka MT; if set to false then the
-  ///                  resulting date will be in UTC.
-  /// @result message frame time as datetime<seconds> instance in UTC or MT
-  template<typename T,
-    typename = std::enable_if_t<T::is_of_sec_type>
-    >
+  /// @result message frame time as datetime<seconds> instance in UTC(SU)
+  template<typename T>
     ngpt::datetime<T>
-    glo_tb2date(bool to_MT) const noexcept
+    glo_toe2date() const noexcept
   {
-    using ngpt::modified_julian_day;
-    using ngpt::seconds;
-    // transform ToC to day_of_week
-    auto toc = this->toc__;
-    if (to_MT) toc.add_seconds(seconds(10800L));
-    long sow; 
-    toc.as_gps_wsow(sow);
-    int dow_toc = sow / 86400L; // day of week of toc
-    // transform message frame time (tb) to day of week and seconds of day
-    long sow_tb = ((to_MT)?
-      (static_cast<long>(data__[2])+10800L):
-      (static_cast<long>(data__[2])));
-    int  dow_tb = sow_tb / 86400L;
-    long sod_tb = sow_tb % 86400L;
-    // return the date adding any days offset
-    int  offset = dow_toc - dow_tb;
-    return ngpt::datetime<T>(toc.mjd()-modified_julian_day(offset), 
-      ngpt::cast_to<seconds, T>(seconds(sod_tb)));
+    long sw_toc;
+    // transform Time of Clock (UTC) to GPS Week and SoW
+    toc__.as_gps_wsow(sw_toc);
+    // day of week for ToC
+    long dw_toc = sw_toc / 86400L;
+    // day of week for ToE
+    long sw_toe = static_cast<long>(data__[2]);
+    long dw_toe = sw_toe / 86400L;
+#ifdef DEBUG
+    assert(std::abs(data__[2]-sw_toe)<1e-15);
+#endif
+    // days difference (if any)
+    int offset = dw_toc - dw_toe;
+    // seconds of day (for ToE)
+    long sd_toe = sw_toe % 86400L;
+#ifdef DEBUG
+    double test = data__[2] - dw_toe*86400e0;
+    bool health = (int)data__[6];
+    if (!health) {
+      assert(std::abs(test-(double)sd_toe)<1e-15);
+      /*if (std::abs(test-(double)sd_toe)>1e-15) {
+        std::cerr<<"\n[ERROR] ToE incorrect! PRN:"<<satsys_to_char(sys__)<<prn__;
+        ngpt::datetime<T> tmp(toc__.mjd()-modified_julian_day(offset),
+          ngpt::cast_to<seconds, T>(seconds(sd_toe)));
+        std::cerr<<"\n        ToC "<<ngpt::strftime_ymd_hms<ngpt::seconds>(toc__);
+        std::cerr<<"\n        ToE "<<ngpt::strftime_ymd_hms<T>(tmp)<<" from nav: "<<data__[2];
+        std::cerr<<"\nSD: "<<sd_toe<<" Test: "<<test;
+      }*/
+    } else {
+      if (std::abs(test-(double)sd_toe)<1e-15) {
+        std::cerr<<"\n[WARNING] NavDataFrame::glo_toe2date() ToE not set correctly for unhealhty satellite: "<<satsys_to_char(sys__)<<prn__;
+      }
+    }
+#endif
+    // form the datetime instance
+    return ngpt::datetime<T>(toc__.mjd()-modified_julian_day(offset),
+      ngpt::cast_to<seconds, T>(seconds(sd_toe)));
   }
 
   int
-  gps_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
+  gps_dtsv(double t_sec, double& dt_sv, double* Ek_in=nullptr) const noexcept;
   
   int
-  gal_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
+  gal_dtsv(double t_sec, double& dt_sv, double* Ek_in=nullptr) const noexcept;
   
   int
-  bds_dtsv(double dt, double& dt_sv, double* Ek_in=nullptr) const noexcept;
+  bds_dtsv(double t_sec, double& dt_sv, double* Ek_in=nullptr) const noexcept;
   
   int
-  glo_dtsv(double t_tm, double toe_tm, double& dtsv) const noexcept;
+  glo_dtsv(double t_sec, double& dtsv) const noexcept;
+
+  template<typename T>
+    inline double
+    ref2toe(const ngpt::datetime<T>& t) const noexcept
+  {
+    double tsec = t.sec().to_fractional_seconds();
+    int mjd_diff = t.mjd().as_underlying_type() - toe__.mjd().as_underlying_type();
+    tsec += 86400e0 * (double)mjd_diff;
+    return tsec;
+  }
+  template<typename T>
+    inline double
+    ref2toc(const ngpt::datetime<T>& t) const noexcept
+  {
+    double tsec = t.sec().to_fractional_seconds();
+    int mjd_diff = t.mjd().as_underlying_type() - toc__.mjd().as_underlying_type();
+    tsec += 86400e0 * (double)mjd_diff;
+    return tsec;
+  }
   
   template<typename T>
     int
@@ -188,20 +211,22 @@ public:
   {
     int status = 0;
     // reference time for SV position computation, is ToE
-    datetime<T> toe (this->gps__toe2date<T>());
-    double toe_sec = toe.sec().to_fractional_seconds();
-    double t_sec   = t.sec().to_fractional_seconds();
+    // datetime<T> toe (this->gps_toe2date<T>());
+    // double toe_sec = toe.sec().to_fractional_seconds();
+    // double t_sec   = t.sec().to_fractional_seconds();
     // reference t to ToE
-    if (t.mjd()>toe.mjd()) {
-      t_sec += 86400e0;
-    } else if (t.mjd()<toe.mjd()) {
-      t_sec = t_sec - 86400e0;
-    }
-    if ((status=gps_ecef(toe_sec, t_sec, state))) return status;
+    //if (t.mjd()>toe__.mjd()) {
+    //  t_sec += 86400e0;
+    //} else if (t.mjd()<toe__.mjd()) {
+    //  t_sec = t_sec - 86400e0;
+    // }
+    double t_sec = this->ref2toe<T>(t);
+    if ((status=gps_ecef(t_sec, state))) return status;
     // dt from ToC
-    auto   dt_ = ngpt::delta_sec(t, toc__);
-    double dti = dt_.to_fractional_seconds();
-    status=gps_dtsv(dti, dt);
+    // auto   dt_ = ngpt::delta_sec(t, toc__);
+    // double dti = dt_.to_fractional_seconds();
+    t_sec = this->ref2toc<T>(t);
+    status=gps_dtsv(t_sec, dt);
     return status;
   }
   
@@ -212,20 +237,22 @@ public:
   {
     int status = 0;
     // reference time for SV position computation, is ToE
-    datetime<T> toe (this->gal__toe2date<T>());
-    double toe_sec = toe.sec().to_fractional_seconds();
-    double t_sec   = t.sec().to_fractional_seconds();
+    // datetime<T> toe (this->gal_toe2date<T>());
+    // double toe_sec = toe.sec().to_fractional_seconds();
+    // double t_sec   = t.sec().to_fractional_seconds();
     // reference t to ToE
-    if (t.mjd()>toe.mjd()) {
-      t_sec += 86400e0;
-    } else if (t.mjd()<toe.mjd()) {
-      t_sec = t_sec - 86400e0;
-    }
-    if ((status=gal_ecef(toe_sec, t_sec, state))) return status;
+    // if (t.mjd()>toe__.mjd()) {
+    //  t_sec += 86400e0;
+    //} else if (t.mjd()<toe__.mjd()) {
+    //  t_sec = t_sec - 86400e0;
+    //}
+    double t_sec = this->ref2toe<T>(t);
+    if ((status=gal_ecef(t_sec, state))) return status;
     // dt from ToC
-    auto   dt_ = ngpt::delta_sec(t, toc__);
-    double dti = dt_.to_fractional_seconds();
-    status=gal_dtsv(dti, dt);
+    // auto   dt_ = ngpt::delta_sec(t, toc__);
+    // double dti = dt_.to_fractional_seconds();
+    t_sec = this->ref2toc<T>(t);
+    status=gal_dtsv(t_sec, dt);
     return status;
   }
   
@@ -236,20 +263,22 @@ public:
   {
     int status = 0;
     // reference time for SV position computation, is ToE
-    datetime<T> toe (this->bds__toe2date<T>());
-    double toe_sec = toe.sec().to_fractional_seconds();
-    double t_sec   = t.sec().to_fractional_seconds();
+    // datetime<T> toe (this->bds_toe2date<T>());
+    // double toe_sec = toe.sec().to_fractional_seconds();
+    // double t_sec   = t.sec().to_fractional_seconds();
     // reference t to ToE
-    if (t.mjd()>toe.mjd()) {
-      t_sec += 86400e0;
-    } else if (t.mjd()<toe.mjd()) {
-      t_sec = t_sec - 86400e0;
-    }
-    if ((status=bds_ecef(toe_sec, t_sec, state))) return status;
+    // if (t.mjd()>toe__.mjd()) {
+    //  t_sec += 86400e0;
+    //} else if (t.mjd()<toe__.mjd()) {
+    //  t_sec = t_sec - 86400e0;
+    //}
+    double t_sec = this->ref2toe<T>(t);
+    if ((status=bds_ecef(t_sec, state))) return status;
     // dt from ToC
-    auto   dt_ = ngpt::delta_sec(t, toc__);
-    double dti = dt_.to_fractional_seconds();
-    status=bds_dtsv(dti, dt);
+    //auto   dt_ = ngpt::delta_sec(t, toc__);
+    //double dti = dt_.to_fractional_seconds();
+    t_sec = this->ref2toc<T>(t);
+    status=bds_dtsv(t_sec, dt);
     return status;
   }
   
@@ -265,19 +294,20 @@ public:
     int status = 0;
     constexpr seconds secmt (10800L);
     // t_i and t_b to MT
-    t.add_seconds(secmt);
-    ngpt::datetime<T> tb = this->glo_tb2date<T>(true);
-    double sec = t.sec().to_fractional_seconds();
-    double tb_sec = tb.sec().to_fractional_seconds();
+    // t.add_seconds(secmt);
+    // ngpt::datetime<T> tb = this->glo_toe2date<T>(true);
+    // double t_sec = t.sec().to_fractional_seconds();
+    // double tb_sec = tb.sec().to_fractional_seconds();
     // reference ti and tb to the same day (it may happen? that ti and tb are
     // in different days)
-    if (t.mjd()>tb.mjd()) {
-      sec += 86400e0;
-    } else if (t.mjd()<tb.mjd()) {
-      sec = sec - 86400e0;
-    }
-    if ( (status=glo_ecef(sec, tb_sec, state)) ) return status;
-    if ( (status=glo_dtsv(sec, tb_sec, dt)) ) return status;
+    //if (t.mjd()>toe__.mjd()) {
+    //  t_sec += 86400e0;
+    //} else if (t.mjd()<toe__.mjd()) {
+    //  t_sec = t_sec - 86400e0;
+    //}
+    double t_sec = this->ref2toe<T>(t);
+    if ( (status=glo_ecef(t_sec, state)) ) return status;
+    if ( (status=glo_dtsv(t_sec, dt)) ) return status;
     return 0;
   }
   
@@ -328,6 +358,7 @@ private:
   SATELLITE_SYSTEM              sys__{};     ///< Satellite system
   int                           prn__{};     ///< PRN as in Rinex 3x
   ngpt::datetime<ngpt::seconds> toc__{};     ///< Time of clock
+  ngpt::datetime<ngpt::seconds> toe__{};     ///< Time of ephemeris
   double                        data__[31]{};///< Data block
 };
 

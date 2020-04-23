@@ -56,19 +56,22 @@ constexpr double C_BDS = 2.99792458e8;
 constexpr double F_CLOCK = -2e0 * std::sqrt(MI_BDS) / (C_BDS*C_BDS);
 
 int
-NavDataFrame::bds_dtsv(double dt, double& dt_sv, double* Ein)
+NavDataFrame::bds_dtsv(double t_sec, double& dt_sv, double* Ein)
 const noexcept
 {
   constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
                                          //+ the Kepler equation for the 
                                          //+ eccentricity anomaly
+  double dt = t_sec - toc__.sec().to_fractional_seconds();
 #ifdef DEBUG
   if (dt<-302400e0 || dt>302400e0) {
     std::cerr<<"\n[ERROR] NavDataFrame::gal_dtsv Delta-seconds are off! WTF?";
     return -1;
   }
+  /*
   if (dt> 302400e0) dt -= 604800e0;
   if (dt<-302400e0) dt += 604800e0;
+  */
 #endif
 
   double Ek (0e0);
@@ -120,8 +123,7 @@ const noexcept
 ///
 /// @see IS-GPS-200H, User Algorithm for Ephemeris Determination
 int
-NavDataFrame::bds_ecef(double toe_sec, double t_sec, double* state, 
-  double* Ek_ptr)
+NavDataFrame::bds_ecef(double t_sec, double* state, double* Ek_ptr)
 const noexcept
 {
   int status = 0;
@@ -130,14 +132,17 @@ const noexcept
                                          //+ eccentricity anomaly
   const double A  (data__[10]*data__[10]);     //  Semi-major axis
   const double n0 (std::sqrt(MI_BDS/(A*A*A))); //  Computed mean motion (rad/sec)
-  double tk (t_sec-toe_sec);
+  const double toe_sec = toe__.sec().to_fractional_seconds();
+  const double tk (t_sec-toe_sec);
 #ifdef DEBUG
   if (tk<-302400e0 || tk>302400e0) {
     std::cerr<<"\n[ERROR] NavDataFrame::gal_ecef Delta-seconds are off! WTF?";
     return -1;
   }
+  /*
   if (tk> 302400e0) tk -= 604800e0;
   if (tk<-302400e0) tk += 604800e0;
+  */
 #endif
   const double n  (n0+data__[5]);              //  Corrected mean motion
   const double Mk (data__[6]+n*tk);            //  Mean anomaly
