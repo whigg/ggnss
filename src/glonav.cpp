@@ -263,24 +263,26 @@ noexcept
 }
 */
 
-/// @brief Compute SV coordinates from navigation block
-/// 
-/// This function will compute the state vector for the SV, at time t_sod
-/// (with reference time tb=tb_sec) in the ECEF PZ-90 reference frame, following
-/// the "simplified" algorithm, aka "Simplified algorithm for determination of 
-/// position and velocity vector components for the SV’s center of mass for the 
-/// given instant in MT". Note that t_sod and tb_sec must not be more than
-/// 15min apart.
+/// This function will compute the state vector for the SV (reffered to the SV 
+/// mass centre), at time t_sec (with reference time tb=ToE aka message frame 
+/// time) in the ECEF PZ-90 reference frame, following the "simplified" algorithm, 
+/// aka "Simplified algorithm for determination of position and velocity vector 
+/// components for the SV’s center of mass for the given instant in MT". Note 
+/// that ToE and t_sec must not be more than 15 min apart.
 ///
-/// @param[in]  t_sod  Seconds of day (as double) in MT
-/// @param[in]  tb_sec Seconds of day (as double) in MT
+/// @param[in]  t_sec  Time (seconds) from ToE in same system as ToE
 /// @param[out] state  array of size 6; SV centre of mass state vector (aka
-///                    [x,y,z,Vx,Vy,Vz]) at time t_sod in meters, meters/sec
+///                    [x,y,z,Vx,Vy,Vz]) at time t_sec in meters, meters/sec
 /// @return an integer denoting the status: 0 means all ok, -1 means that the
 ///         computation is performed, but the time interval is more than 15min
 ///         apart; anything >0 denotes an error
 ///
-/// @cite GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of 
+/// @note Input parameter t_sec should be referenced to the begining of ToE
+///       (aka start of ToE day) at the same time-scale (normally GLO Time).
+///       Note that in RINEX v3.x, GLONASS time reference for the Navigation
+///       message is actually UTC.
+///
+/// @see  GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of 
 ///       mass position and velocity vector components using ephemeris data"
 int
 NavDataFrame::glo_ecef(double t_sec, double* state) 

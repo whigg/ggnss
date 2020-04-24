@@ -97,7 +97,7 @@ template<>
 
   static double
   band2frequency(int band)
-  { return frequency_map.at(band); }
+  {return frequency_map.at(band);}
 };
 
 /// Specialize traits for Satellite System Glonass

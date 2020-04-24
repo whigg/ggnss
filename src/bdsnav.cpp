@@ -105,23 +105,21 @@ const noexcept
   return 0;
 }
 
-/// @brief get SV coordinates (WGS84) from navigation block
-/// 
-/// Compute the ECEF coordinates of position for the phase center of the SVs' 
-/// antennas. The time parameter should be given in GPS Time
-/// @param[in]  toe_sec  Time of Ephemeris as seconds in day
-/// @param[in]  t_sec    Epoch as seconds in day
+/// Compute the ECEF (BDCS) coordinates of position for the phase center of the
+/// SVs' antennas. The time parameter should be given in BeiDou System Time.
+/// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
+///                      this normally means BDSTime (BDT)
 /// @param[out] state    SV x,y,z -components of antenna phase center position
-///                      in the WGS84 ECEF coordinate system in meters; the 
+///                      in the BDCS ECEF coordinate system in meters; the 
 ///                      state array must have length >=3
 /// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the 
 ///                      value of the computed Ek aka Eccentric Anomaly
 /// @return Anything other than 0 denotes an error
 ///
-/// @note Input parameters toe_sec and t_sec should be referenced to the same
-///       start (aka start of day) at the same time-scale
+/// @note Input parameter t_sec should be referenced to the begining of ToE
+///       (aka start of ToE day) at the same time-scale (normally BDT)
 ///
-/// @see IS-GPS-200H, User Algorithm for Ephemeris Determination
+/// @see Galileo OS-SIS-ICD, par. 5.1.1. Ephemeris
 int
 NavDataFrame::bds_ecef(double t_sec, double* state, double* Ek_ptr)
 const noexcept

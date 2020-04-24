@@ -54,12 +54,10 @@ constexpr double SEC_IN_WEEK {604800e0};
 /// Constant F for SV Clock Correction in seconds/sqrt(meters)
 constexpr double F_CLOCK {-4.442807633e-10};
 
-/// @brief get SV coordinates (WGS84) from navigation block
-/// 
-/// Compute the ECEF coordinates of position for the phase center of the SVs' 
-/// antennas. The time parameter should be given in GPS Time
-/// @param[in]  toe_sec  Time of Ephemeris as seconds in day
-/// @param[in]  t_sec    Epoch as seconds in day
+/// Compute the ECEF (WGS84) coordinates of position for the phase center of the
+/// SVs' antennas. The time parameter should be given in GPS Time.
+/// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
+///                      this normally means GPSTime
 /// @param[out] state    SV x,y,z -components of antenna phase center position
 ///                      in the WGS84 ECEF coordinate system in meters; the 
 ///                      state array must have length >=3
@@ -67,8 +65,8 @@ constexpr double F_CLOCK {-4.442807633e-10};
 ///                      value of the computed Ek aka Eccentric Anomaly
 /// @return Anything other than 0 denotes an error
 ///
-/// @note Input parameters toe_sec and t_sec should be referenced to the same
-///       start (aka start of day) at the same time-scale
+/// @note Input parameter t_sec should be referenced to the begining of ToE
+///       (aka start of ToE day) at the same time-scale (normally GPS Time)
 ///
 /// @see IS-GPS-200H, User Algorithm for Ephemeris Determination
 int
@@ -165,7 +163,7 @@ const noexcept
 /// (in seconds):
 /// t = t_sv - Δt_sv
 ///
-/// @param[in]  t     The difference t-t_oc in seconds
+/// @param[in]  t_sec Time (in seconds) from ToC
 /// @param[out] dt_sv SV Clock Correction in seconds; satellite clock bias 
 ///                   includes relativity correction without code bias (tgd or 
 ///                   bgd)

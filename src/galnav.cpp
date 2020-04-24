@@ -54,23 +54,21 @@ constexpr double C_GAL = 299792458e0;
 ///
 constexpr double F_CLOCK = -4.442807309e-10;
 
-/// @brief get SV coordinates (WGS84) from navigation block
-/// 
-/// Compute the ECEF coordinates of position for the phase center of the SVs' 
-/// antennas. The time parameter should be given in GPS Time
-/// @param[in]  toe_sec  Time of Ephemeris as seconds in day
-/// @param[in]  t_sec    Epoch as seconds in day
+/// Compute the ECEF (GTRF) coordinates of position for the phase center of the
+/// SVs' antennas. The time parameter should be given in GALILEO System Time.
+/// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
+///                      this normally means GALTime (GST)
 /// @param[out] state    SV x,y,z -components of antenna phase center position
-///                      in the WGS84 ECEF coordinate system in meters; the 
+///                      in the GTRF ECEF coordinate system in meters; the 
 ///                      state array must have length >=3
 /// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the 
 ///                      value of the computed Ek aka Eccentric Anomaly
 /// @return Anything other than 0 denotes an error
 ///
-/// @note Input parameters toe_sec and t_sec should be referenced to the same
-///       start (aka start of day) at the same time-scale
+/// @note Input parameter t_sec should be referenced to the begining of ToE
+///       (aka start of ToE day) at the same time-scale (normally GST)
 ///
-/// @see IS-GPS-200H, User Algorithm for Ephemeris Determination
+/// @see Galileo OS-SIS-ICD, par. 5.1.1. Ephemeris
 int
 NavDataFrame::gal_ecef(double t_sec, double* state, double* Ek_ptr)
 const noexcept
@@ -122,13 +120,13 @@ const noexcept
   const double sin2F   (std::sin(2e0*Fk));
   const double cos2F   (std::cos(2e0*Fk));
   const double duk     (data__[9]*sin2F  + data__[7]*cos2F);  // Argument of Latitude
-                                                        //+ Correction
+                                                              //+ Correction
   const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius Correction
   const double dik     (data__[14]*sin2F + data__[12]*cos2F); // Inclination Correction
 
   const double uk      (Fk + duk);                            // Corrected Argument 
-                                                        //+ of Latitude
-  const double rk      (A*(1e0-e*cosE)+drk);          // Corrected Radius
+                                                              //+ of Latitude
+  const double rk      (A*(1e0-e*cosE)+drk);                  // Corrected Radius
   const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected Inclination
                                 
   // Positions in orbital plane

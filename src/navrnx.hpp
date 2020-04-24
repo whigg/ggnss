@@ -27,27 +27,6 @@ public:
   int
   set_from_rnx3(std::ifstream& inp) noexcept;
   
-  /// @brief get SV coordinates (WGS84) from navigation block
-  /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
-  int
-  gps_ecef(double t_sec, double* state, double* Ek=nullptr)
-  const noexcept;
-  /// @brief get SV coordinates (WGS84) from navigation block
-  /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
-  int
-  gal_ecef(double t_sec, double* state, double* Ek=nullptr)
-  const noexcept;
-  /// @brief get SV coordinates (WGS84) from navigation block
-  /// see IS-GPS-200H, User Algorithm for Ephemeris Determination
-  int
-  bds_ecef(double t_sec, double* state, double* Ek=nullptr)
-  const noexcept;
-  
-  int
-  glo_ecef(double tb_sod, double* state)
-  const noexcept;
-  
-
   template<typename T,
     typename = std::enable_if_t<T::is_of_sec_type>
     >
@@ -68,7 +47,171 @@ public:
     }
     return datetime<T>::min();
   }
+  
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    int
+    stateNclock(const ngpt::datetime<T>& t, double* state, double& clock)
+    const
+  {
+    switch (this->sys__) {
+      case (SATELLITE_SYSTEM::gps)    : return gps_stateNclock(t, state, clock);
+      case (SATELLITE_SYSTEM::glonass): return glo_stateNclock(t, state, clock);
+      case (SATELLITE_SYSTEM::galileo): return gal_stateNclock(t, state, clock);
+      case (SATELLITE_SYSTEM::beidou) : return bds_stateNclock(t, state, clock);
+      case (SATELLITE_SYSTEM::sbas)   :
+      case (SATELLITE_SYSTEM::qzss)   :
+      case (SATELLITE_SYSTEM::irnss)  :
+      case (SATELLITE_SYSTEM::mixed)  :
+        std::cerr<<"\n[ERROR] NavDataFrame::stateNclock() Cannot handle satellite system: "<<satsys_to_char(sys__);
+        throw std::runtime_error("ERROR] NavDataFrame::stateNclock) Cannot handle satellite system");
+    }
+    return 100;
+  }
 
+  /// @brief Reference t to the beggining of ToE (aka 00:00:00 of ToE)
+  /// @param[in] t Datetime instance to reference to ToE
+  /// @return Seconds of t since 00:00:00ToE
+  template<typename T>
+    inline double
+    ref2toe(const ngpt::datetime<T>& t) const noexcept
+  {
+    double tsec = t.sec().to_fractional_seconds();
+    int mjd_diff = t.mjd().as_underlying_type() - toe__.mjd().as_underlying_type();
+    if (mjd_diff) tsec += 86400e0 * (double)mjd_diff;
+    return tsec;
+  }
+
+  /// @brief Reference t to the beggining of ToE (aka 00:00:00 of ToC)
+  /// @param[in] t Datetime instance to reference to ToC
+  /// @return Seconds of t since 00:00:00ToC
+  template<typename T>
+    inline double
+    ref2toc(const ngpt::datetime<T>& t) const noexcept
+  {
+    double tsec = t.sec().to_fractional_seconds();
+    int mjd_diff = t.mjd().as_underlying_type() - toc__.mjd().as_underlying_type();
+    if (mjd_diff) tsec += 86400e0 * (double)mjd_diff;
+    return tsec;
+  }
+  
+  template<typename T>
+    int
+    gps_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
+    const noexcept
+  {
+    int status = 0;
+    double t_sec = this->ref2toe<T>(t);
+    if ((status=gps_ecef(t_sec, state))) return status;
+    t_sec = this->ref2toc<T>(t);
+    status=gps_dtsv(t_sec, dt);
+    return status;
+  }
+  
+  template<typename T>
+    int
+    gal_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
+    const noexcept
+  {
+    int status = 0;
+    double t_sec = this->ref2toe<T>(t);
+    if ((status=gal_ecef(t_sec, state))) return status;
+    t_sec = this->ref2toc<T>(t);
+    status=gal_dtsv(t_sec, dt);
+    return status;
+  }
+  
+  template<typename T>
+    int
+    bds_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
+    const noexcept
+  {
+    int status = 0;
+    double t_sec = this->ref2toe<T>(t);
+    if ((status=bds_ecef(t_sec, state))) return status;
+    t_sec = this->ref2toc<T>(t);
+    status=bds_dtsv(t_sec, dt);
+    return status;
+  }
+  
+  /// @brief Compute SV centre of mass state vector in ECEF PZ90 frame at
+  ///        epoch epoch using the simplified algorithm
+  /// @param[in] epoch The time in UTC for which we want the SV state
+  /// @param[out] The SV centre of mass state vector in meters, meters/sec
+  template<typename T>
+    int
+    glo_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
+    const noexcept
+  {
+    int status = 0;
+    double t_sec = this->ref2toe<T>(t);
+    if ((status=glo_ecef(t_sec, state))) return status;
+    if ((status=glo_dtsv(t_sec, dt))) return status;
+    return 0;
+  }
+  
+  double
+  data(int idx) const noexcept {return data__[idx];}
+
+  double&
+  data(int idx) noexcept {return data__[idx];}
+
+  SATELLITE_SYSTEM
+  system() const noexcept {return sys__;}
+
+  int
+  prn() const noexcept {return prn__;}
+
+  ngpt::datetime<ngpt::seconds>
+  toc() const noexcept {return toc__;}
+
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+  toc() const noexcept {return toc__.cast_to<T>();}
+
+  void
+  set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}
+
+  /* NEW FUNCTIONS */
+  // URA for gps
+  float ura() const noexcept;
+  int sv_health() const noexcept;
+  int fit_interval() const noexcept;
+
+  float sisa() const noexcept;
+  int iod_nav() const noexcept;
+
+private:
+  SATELLITE_SYSTEM              sys__{};     ///< Satellite system
+  int                           prn__{};     ///< PRN as in Rinex 3x
+  ngpt::datetime<ngpt::seconds> toc__{};     ///< Time of clock
+  ngpt::datetime<ngpt::seconds> toe__{};     ///< Time of ephemeris
+  double                        data__[31]{};///< Data block
+
+public:
+  /// @brief get SV coordinates (WGS84) for SVs' antenna phase centre
+  int
+  gps_ecef(double t_sec, double* state, double* Ek=nullptr)
+  const noexcept;
+  
+  /// @brief get SV coordinates (GTRF) from navigation block
+  int
+  gal_ecef(double t_sec, double* state, double* Ek=nullptr)
+  const noexcept;
+  
+  /// @brief get SV coordinates (BDCS) from navigation block
+  int
+  bds_ecef(double t_sec, double* state, double* Ek=nullptr)
+  const noexcept;
+  
+  /// @brief get SV coordinates and velocity (PZ90) refferenced to SV mass centre
+  int
+  glo_ecef(double tb_sod, double* state)
+  const noexcept;
+  
   /// @brief GPS time of ephemeris to datetime<T> instance
   ///
   /// Transform Time_of_Ephemeris from gps_week and sec of gps week to a valid
@@ -185,181 +328,7 @@ public:
   int
   glo_dtsv(double t_sec, double& dtsv) const noexcept;
 
-  template<typename T>
-    inline double
-    ref2toe(const ngpt::datetime<T>& t) const noexcept
-  {
-    double tsec = t.sec().to_fractional_seconds();
-    int mjd_diff = t.mjd().as_underlying_type() - toe__.mjd().as_underlying_type();
-    tsec += 86400e0 * (double)mjd_diff;
-    return tsec;
-  }
-  template<typename T>
-    inline double
-    ref2toc(const ngpt::datetime<T>& t) const noexcept
-  {
-    double tsec = t.sec().to_fractional_seconds();
-    int mjd_diff = t.mjd().as_underlying_type() - toc__.mjd().as_underlying_type();
-    tsec += 86400e0 * (double)mjd_diff;
-    return tsec;
-  }
-  
-  template<typename T>
-    int
-    gps_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
-    const noexcept
-  {
-    int status = 0;
-    // reference time for SV position computation, is ToE
-    // datetime<T> toe (this->gps_toe2date<T>());
-    // double toe_sec = toe.sec().to_fractional_seconds();
-    // double t_sec   = t.sec().to_fractional_seconds();
-    // reference t to ToE
-    //if (t.mjd()>toe__.mjd()) {
-    //  t_sec += 86400e0;
-    //} else if (t.mjd()<toe__.mjd()) {
-    //  t_sec = t_sec - 86400e0;
-    // }
-    double t_sec = this->ref2toe<T>(t);
-    if ((status=gps_ecef(t_sec, state))) return status;
-    // dt from ToC
-    // auto   dt_ = ngpt::delta_sec(t, toc__);
-    // double dti = dt_.to_fractional_seconds();
-    t_sec = this->ref2toc<T>(t);
-    status=gps_dtsv(t_sec, dt);
-    return status;
-  }
-  
-  template<typename T>
-    int
-    gal_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
-    const noexcept
-  {
-    int status = 0;
-    // reference time for SV position computation, is ToE
-    // datetime<T> toe (this->gal_toe2date<T>());
-    // double toe_sec = toe.sec().to_fractional_seconds();
-    // double t_sec   = t.sec().to_fractional_seconds();
-    // reference t to ToE
-    // if (t.mjd()>toe__.mjd()) {
-    //  t_sec += 86400e0;
-    //} else if (t.mjd()<toe__.mjd()) {
-    //  t_sec = t_sec - 86400e0;
-    //}
-    double t_sec = this->ref2toe<T>(t);
-    if ((status=gal_ecef(t_sec, state))) return status;
-    // dt from ToC
-    // auto   dt_ = ngpt::delta_sec(t, toc__);
-    // double dti = dt_.to_fractional_seconds();
-    t_sec = this->ref2toc<T>(t);
-    status=gal_dtsv(t_sec, dt);
-    return status;
-  }
-  
-  template<typename T>
-    int
-    bds_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
-    const noexcept
-  {
-    int status = 0;
-    // reference time for SV position computation, is ToE
-    // datetime<T> toe (this->bds_toe2date<T>());
-    // double toe_sec = toe.sec().to_fractional_seconds();
-    // double t_sec   = t.sec().to_fractional_seconds();
-    // reference t to ToE
-    // if (t.mjd()>toe__.mjd()) {
-    //  t_sec += 86400e0;
-    //} else if (t.mjd()<toe__.mjd()) {
-    //  t_sec = t_sec - 86400e0;
-    //}
-    double t_sec = this->ref2toe<T>(t);
-    if ((status=bds_ecef(t_sec, state))) return status;
-    // dt from ToC
-    //auto   dt_ = ngpt::delta_sec(t, toc__);
-    //double dti = dt_.to_fractional_seconds();
-    t_sec = this->ref2toc<T>(t);
-    status=bds_dtsv(t_sec, dt);
-    return status;
-  }
-  
-  /// @brief Compute SV centre of mass state vector in ECEF PZ90 frame at
-  ///        epoch epoch using the simplified algorithm
-  /// @param[in] epoch The time in UTC for which we want the SV state
-  /// @param[out] The SV centre of mass state vector in meters, meters/sec
-  template<typename T>
-    int
-    glo_stateNclock(ngpt::datetime<T> t, double* state, double& dt)
-    const noexcept
-  {
-    int status = 0;
-    constexpr seconds secmt (10800L);
-    // t_i and t_b to MT
-    // t.add_seconds(secmt);
-    // ngpt::datetime<T> tb = this->glo_toe2date<T>(true);
-    // double t_sec = t.sec().to_fractional_seconds();
-    // double tb_sec = tb.sec().to_fractional_seconds();
-    // reference ti and tb to the same day (it may happen? that ti and tb are
-    // in different days)
-    //if (t.mjd()>toe__.mjd()) {
-    //  t_sec += 86400e0;
-    //} else if (t.mjd()<toe__.mjd()) {
-    //  t_sec = t_sec - 86400e0;
-    //}
-    double t_sec = this->ref2toe<T>(t);
-    if ( (status=glo_ecef(t_sec, state)) ) return status;
-    if ( (status=glo_dtsv(t_sec, dt)) ) return status;
-    return 0;
-  }
-  
-  template<typename T>
-    int
-    gps_dtsv(const ngpt::datetime<T>& epoch, double& dtsv)
-    const noexcept
-  {
-    T dsec = ngpt::delta_sec<T, ngpt::seconds>(epoch, toc__);
-    double sec = static_cast<double>(dsec.as_underlying_type());
-    return this->gps_dtsv(sec, dtsv);
-  }
 
-  double
-  data(int idx) const noexcept { return data__[idx]; }
-
-  double&
-  data(int idx) noexcept { return data__[idx]; }
-
-  SATELLITE_SYSTEM
-  system() const noexcept { return sys__; }
-
-  int
-  prn() const noexcept { return prn__; }
-
-  ngpt::datetime<ngpt::seconds>
-  toc() const noexcept { return toc__; }
-
-  template<typename T,
-    typename = std::enable_if_t<T::is_of_sec_type>
-    >
-    ngpt::datetime<T>
-  toc() const noexcept { return toc__.cast_to<T>(); }
-
-  void
-  set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}
-
-  /* NEW FUNCTIONS */
-  // URA for gps
-  float ura() const noexcept;
-  int sv_health() const noexcept;
-  int fit_interval() const noexcept;
-
-  float sisa() const noexcept;
-  int iod_nav() const noexcept;
-
-private:
-  SATELLITE_SYSTEM              sys__{};     ///< Satellite system
-  int                           prn__{};     ///< PRN as in Rinex 3x
-  ngpt::datetime<ngpt::seconds> toc__{};     ///< Time of clock
-  ngpt::datetime<ngpt::seconds> toe__{};     ///< Time of ephemeris
-  double                        data__[31]{};///< Data block
 };
 
 class NavigationRnx
