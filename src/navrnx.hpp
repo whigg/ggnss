@@ -103,9 +103,11 @@ public:
   {
     int status = 0;
     double t_sec = this->ref2toe<T>(t);
-    if ((status=gps_ecef(t_sec, state))) return status;
+    // if ((status=gps_ecef(t_sec, state))) return status;
+    if ((status=this->kepler2state<SATELLITE_SYSTEM::gps>(t_sec, state))) return status;
     t_sec = this->ref2toc<T>(t);
-    status=gps_dtsv(t_sec, dt);
+    status = sv_dtsv<SATELLITE_SYSTEM::gps>(t_sec, dt);
+    //status=gps_dtsv(t_sec, dt);
     return status;
   }
   
@@ -116,9 +118,11 @@ public:
   {
     int status = 0;
     double t_sec = this->ref2toe<T>(t);
-    if ((status=gal_ecef(t_sec, state))) return status;
+    // if ((status=gal_ecef(t_sec, state))) return status;
+    if ((status=this->kepler2state<SATELLITE_SYSTEM::galileo>(t_sec, state))) return status;
     t_sec = this->ref2toc<T>(t);
-    status=gal_dtsv(t_sec, dt);
+    status=sv_dtsv<SATELLITE_SYSTEM::galileo>(t_sec, dt);
+    // status=gal_dtsv(t_sec, dt);
     return status;
   }
   
@@ -129,9 +133,11 @@ public:
   {
     int status = 0;
     double t_sec = this->ref2toe<T>(t);
-    if ((status=bds_ecef(t_sec, state))) return status;
+    // if ((status=bds_ecef(t_sec, state))) return status;
+    if ((status=this->kepler2state<SATELLITE_SYSTEM::beidou>(t_sec, state))) return status;
     t_sec = this->ref2toc<T>(t);
-    status=bds_dtsv(t_sec, dt);
+    status=sv_dtsv<SATELLITE_SYSTEM::beidou>(t_sec, dt);
+    // status=bds_dtsv(t_sec, dt);
     return status;
   }
   
@@ -190,6 +196,190 @@ private:
   ngpt::datetime<ngpt::seconds> toc__{};     ///< Time of clock
   ngpt::datetime<ngpt::seconds> toe__{};     ///< Time of ephemeris
   double                        data__[31]{};///< Data block
+
+  /// @brief Transform Keplerian elements to SV coordinates
+  ///
+  /// This function template replaces functions gps_ecef, gal_ecef and bds_ecef
+  /// For these satellite systems (aka GPS, GALILEO and BeiDou) the Navigation
+  /// message as guven in RINEX v3.x holds the same Keplerian elements at the
+  /// same position (that is at the same indexes in data__ array). Hence, we only
+  /// need one function to turn these elements to SV position.
+  /// For more information, see the (now obsolete function gps_ecef, gal_ecef and
+  /// bds_ecef).
+  /// @tparam S            The satellite system of the NavDataFrame; only works
+  ///                      for systems: GPS, GALILEO and BeiDou
+  /// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE
+  /// @param[out] state    SV x,y,z -components of antenna phase center position
+  ///                      in the ECEF coordinate system in meters; the 
+  ///                      state array must have length >=3
+  /// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the 
+  ///                      value of the computed Ek aka Eccentric Anomaly
+  /// @return Anything other than 0 denotes an error
+  ///
+  /// @note Input parameter t_sec should be referenced to the begining of ToE
+  ///       (aka start of ToE day) at the same time-scale
+  template<SATELLITE_SYSTEM S>
+    int
+    kepler2state(double t_sec, double* state, double* Ek_ptr=nullptr)
+    const noexcept
+  {
+    int status = 0;
+
+    constexpr double MI_SYS     = ngpt::satellite_system_traits<S>::mi();
+    constexpr double OMEGAE_SYS = ngpt::satellite_system_traits<S>::omegae_dot();
+    constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
+                                           //+ the Kepler equation for the 
+                                           //+ eccentricity anomaly
+    const double A  (data__[10]*data__[10]);     //  Semi-major axis
+    const double n0 (std::sqrt(MI_SYS/(A*A*A))); //  Computed mean motion (rad/sec)
+    const double toe_sec = toe__.sec().to_fractional_seconds();
+    const double tk (t_sec-toe_sec);
+#ifdef DEBUG
+    if (tk<-302400e0 || tk>302400e0) {
+      std::cerr<<"\n[ERROR] NavDataFrame::kepler2state Delta-seconds are off! WTF?";
+      return -1;
+    }
+#endif
+    const double n  (n0+data__[5]);              //  Corrected mean motion
+    const double Mk (data__[6]+n*tk);            //  Mean anomaly
+
+    // Solve (iteratively) Kepler's equation for Ek
+    double E  (Mk);
+    double Ek (0e0);
+    const double e  (data__[8]);
+    int i;
+    for (i=0; std::abs(E-Ek)>LIMIT && i<1001; i++) {
+      Ek = E;
+      E = std::sin(Ek)*e+Mk;
+    }
+    if (i>=1000) return 1;
+    Ek = E;
+
+    if (Ek_ptr) *Ek_ptr = Ek;
+
+    const double sinE    (std::sin(E));
+    const double cosE    (std::cos(E));
+    const double ecosEm1 (1e0-e*cosE);
+    const double vk_ar   ((std::sqrt(1e0-e*e)*sinE)/ecosEm1);
+    const double vk_pr   ((cosE-e)/ecosEm1);
+    const double vk      (std::atan2(vk_ar, vk_pr));            // True Anomaly
+
+    // Second Harmonic Perturbations
+    const double Fk      (vk+data__[17]);                       // Argument of Latitude
+    const double sin2F   (std::sin(2e0*Fk));
+    const double cos2F   (std::cos(2e0*Fk));
+    const double duk     (data__[9]*sin2F  + data__[7]*cos2F);  // Argument of Latitude
+                                                                //+ Correction
+    const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius Correction
+    const double dik     (data__[14]*sin2F + data__[12]*cos2F); // Inclination Correction
+
+    const double uk      (Fk + duk);                            // Corrected Argument 
+                                                                //+ of Latitude
+    const double rk      (A*(1e0-e*cosE)+drk);                  // Corrected Radius
+    const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected Inclination
+                                  
+    // Positions in orbital plane
+    const double xk_dot  (rk*std::cos(uk));
+    const double yk_dot  (rk*std::sin(uk));
+    
+    // Corrected longitude of ascending node
+    const double omega_k (data__[13]+(data__[18]-OMEGAE_SYS)*tk-OMEGAE_SYS*data__[11]);
+    const double sinOk   (std::sin(omega_k));
+    const double cosOk   (std::cos(omega_k));
+    const double cosik   (std::cos(ik));
+    
+    state[0] = xk_dot*cosOk - yk_dot*sinOk*cosik;
+    state[1] = xk_dot*sinOk + yk_dot*cosOk*cosik;
+    state[2] = yk_dot*std::sin(ik);
+
+    // all done
+    return status;
+  }
+
+  /// @brief Compute SV Clock Correction
+  ///
+  /// Determine the effective SV PRN code phase offset referenced to the phase 
+  /// center of the antennas (∆tsv) with respect to system time (t) at the 
+  /// time of data transmission. This estimated correction accounts for the 
+  /// deterministic SV clock error characteristics of bias, drift and aging, as 
+  /// well as for the SV implementation characteristics of group delay bias and 
+  /// mean differential group delay. Since these coefficients do not include 
+  /// corrections for relativistic effects, the user's equipment must determine 
+  /// the requisite relativistic correction.
+  /// The user shall correct the time received from the SV with the equation 
+  /// (in seconds):
+  /// t = t_sv - Δt_sv
+  /// This function template replaces functions gps_dtsv, gal_dtsv and bds_dtsv
+  /// For these satellite systems (aka GPS, GALILEO and BeiDou) the Navigation
+  /// message as given in RINEX v3.x holds the same clock elements at the
+  /// same position (that is at the same indexes in data__ array). Hence, we only
+  /// need one function to turn these elements to SV clock correction.
+  /// For more information, see the (now obsolete function gps_ecef, gal_ecef and
+  /// bds_ecef).
+  /// @tparam S         The satellite system of the NavDataFrame; only works
+  /// @param[in]  t_sec Time (in seconds) from ToC
+  /// @param[out] dt_sv SV Clock Correction in seconds; satellite clock bias 
+  ///                   includes relativity correction without code bias (tgd or 
+  ///                   bgd)
+  /// @param[in]  Ein   If provided, the value to use for Eccentric Anomaly (to
+  ///                   compute the relativistic error term). If not provided,
+  ///                   then Kepler's equation will be used to compute it. If a
+  ///                   user has already computed Ek (e.g. when computing SV
+  ///                   coordinates), then this value could be used here with
+  ///                   reduced accuracy
+  /// @return Anything other than 0 denotes an error
+  template<SATELLITE_SYSTEM S>
+    int
+    sv_dtsv(double t_sec, double& dt_sv, double* Ein=nullptr)
+    const noexcept
+  {
+    constexpr double MI_SYS  = ngpt::satellite_system_traits<S>::mi();
+    constexpr double F_CLOCK = ngpt::satellite_system_traits<S>::f_clock();
+    constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
+                                           //+ the Kepler equation for the 
+                                           //+ eccentricity anomaly
+    double dt = t_sec - toc__.sec().to_fractional_seconds();
+#ifdef DEBUG
+    if (dt<-302400e0 || dt>302400e0) {
+      std::cerr<<"\n[ERROR] NavDataFrame::gps_dtsv Delta-seconds are off! WTF?";
+      return -1;
+    }
+    /*
+    if (dt> 302400e0) dt -= 604800e0;
+    if (dt<-302400e0) dt += 604800e0;
+    */
+#endif
+
+    double Ek (0e0);
+    if (!Ein) {
+      // Solve (iteratively) Kepler's equation for Ek
+      double A  (data__[10]*data__[10]);     //  Semi-major axis
+      double n0 (std::sqrt(MI_SYS/(A*A*A))); //  Computed mean motion (rad/sec)
+      double n  (n0+data__[5]);              //  Corrected mean motion
+      double Mk (data__[6]+n*dt);            //  Mean anomaly
+      double E  (Mk);
+      double e  (data__[8]);
+      int i;
+      for (i=0; std::abs(E-Ek)>LIMIT && i<1001; i++) {
+        Ek = E;
+        E = std::sin(Ek)*e+Mk;
+      }
+      if (i>=1000) return 1;
+      Ek = E;
+    } else {
+      Ek = *Ein;
+    }
+
+    // Compute Δtr relativistic correction term (seconds)
+    const double Dtr = F_CLOCK * (data__[8]*data__[10]*std::sin(Ek));
+
+    // Compute correction
+    double Dtsv = data__[0] + data__[1]*dt + (data__[2]*dt)*dt;
+    Dtsv += Dtr;
+    dt_sv = Dtsv;
+
+    return 0;
+  }
 
 public:
   /// @brief get SV coordinates (WGS84) for SVs' antenna phase centre

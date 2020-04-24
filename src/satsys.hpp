@@ -36,6 +36,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <map> 
+#include <cmath>
 
 namespace ngpt
 {
@@ -98,6 +99,15 @@ template<>
   static double
   band2frequency(int band)
   {return frequency_map.at(band);}
+  
+  /// WGS 84 value of the earth's gravitational constant for GPS user μ
+  static constexpr double mi() {return 3.986005e14;}
+
+  /// WGS 84 value of the earth's rotation rate
+  static constexpr double omegae_dot() {return 7.2921151467e-5;}
+
+  /// Constant F for SV Clock Correction in seconds/sqrt(meters)
+  static constexpr double f_clock() {return -4.442807633e-10;}
 };
 
 /// Specialize traits for Satellite System Glonass
@@ -134,6 +144,15 @@ template<>
   static double
   band2frequency(int band)
   { return frequency_map.at(band); }
+  
+  /// Geocentric gravitational constant
+  static constexpr double mi() {return 3.986004418e14;}
+
+  /// Mean angular velocity of the Earth
+  static constexpr double omegae_dot() {return 7.2921151467e-5;}
+
+  /// Constant F for SV Clock Correction in seconds/sqrt(meters)
+  static constexpr double f_clock() {return -4.442807309e-10;}
 };
 
 /// Specialize traits for Satellite System SBAS
@@ -193,7 +212,20 @@ template<>
   
   static double
   band2frequency(int band)
-  { return frequency_map.at(band); }
+  {return frequency_map.at(band);}
+  
+  /// Geocentric gravitational constant
+  static constexpr double mi() {return 3.986004418e14;}
+
+  /// Mean angular velocity of the Earth
+  static constexpr double omegae_dot() {return 7.2921150e-5;}
+
+  /// Constant F for SV Clock Correction in seconds/sqrt(meters)
+  static constexpr double f_clock()
+  {
+    constexpr double par = 2.99792458e8 * 2.99792458e8;
+    return -2e0 * std::sqrt(3.986004418e14) / par;
+  }
 };
 
 /// Specialize traits for Satellite System IRNSS
