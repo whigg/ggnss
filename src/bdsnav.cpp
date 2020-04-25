@@ -55,6 +55,8 @@ constexpr double C_BDS = 2.99792458e8;
 ///
 constexpr double F_CLOCK = -2e0 * std::sqrt(MI_BDS) / (C_BDS*C_BDS);
 
+/* OBSOLETE this function is replaced by template sv_clock 
+   ----------------------------------------------------------------------------
 int
 NavDataFrame::bds_dtsv(double t_sec, double& dt_sv, double* Ein)
 const noexcept
@@ -68,10 +70,8 @@ const noexcept
     std::cerr<<"\n[ERROR] NavDataFrame::gal_dtsv Delta-seconds are off! WTF?";
     return -1;
   }
-  /*
-  if (dt> 302400e0) dt -= 604800e0;
-  if (dt<-302400e0) dt += 604800e0;
-  */
+  // if (dt> 302400e0) dt -= 604800e0;
+  // if (dt<-302400e0) dt += 604800e0;
 #endif
 
   double Ek (0e0);
@@ -104,7 +104,10 @@ const noexcept
 
   return 0;
 }
+*/
 
+/* OBSOLETE this function is replaced by template kepler2state
+   ----------------------------------------------------------------------------
 /// Compute the ECEF (BDCS) coordinates of position for the phase center of the
 /// SVs' antennas. The time parameter should be given in BeiDou System Time.
 /// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
@@ -137,10 +140,8 @@ const noexcept
     std::cerr<<"\n[ERROR] NavDataFrame::gal_ecef Delta-seconds are off! WTF?";
     return -1;
   }
-  /*
-  if (tk> 302400e0) tk -= 604800e0;
-  if (tk<-302400e0) tk += 604800e0;
-  */
+  // if (tk> 302400e0) tk -= 604800e0;
+  // if (tk<-302400e0) tk += 604800e0;
 #endif
   const double n  (n0+data__[5]);              //  Corrected mean motion
   const double Mk (data__[6]+n*tk);            //  Mean anomaly
@@ -197,3 +198,4 @@ const noexcept
   // all done
   return status;
 }
+*/

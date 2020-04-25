@@ -54,6 +54,8 @@ constexpr double SEC_IN_WEEK {604800e0};
 /// Constant F for SV Clock Correction in seconds/sqrt(meters)
 constexpr double F_CLOCK {-4.442807633e-10};
 
+/* OBSOLETE this function is replaced by template kepler2state
+   ----------------------------------------------------------------------------
 /// Compute the ECEF (WGS84) coordinates of position for the phase center of the
 /// SVs' antennas. The time parameter should be given in GPS Time.
 /// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
@@ -86,10 +88,8 @@ const noexcept
     std::cerr<<"\n[ERROR] NavDataFrame::gps_ecef Delta-seconds are off! WTF?";
     return -1;
   }
-  /*
-  if (tk> 302400e0) tk -= 604800e0;
-  if (tk<-302400e0) tk += 604800e0;
-  */
+  // if (tk> 302400e0) tk -= 604800e0;
+  // if (tk<-302400e0) tk += 604800e0;
 #endif
   const double n  (n0+data__[5]);              //  Corrected mean motion
   const double Mk (data__[6]+n*tk);            //  Mean anomaly
@@ -148,7 +148,10 @@ const noexcept
   // all done
   return status;
 }
+*/
 
+/* OBSOLETE this function is replaced by template sv_clock
+   ----------------------------------------------------------------------------
 /// @brief Compute SV Clock Correction
 ///
 /// Determine the effective SV PRN code phase offset referenced to the phase 
@@ -187,10 +190,8 @@ const noexcept
     std::cerr<<"\n[ERROR] NavDataFrame::gps_dtsv Delta-seconds are off! WTF?";
     return -1;
   }
-  /*
-  if (dt> 302400e0) dt -= 604800e0;
-  if (dt<-302400e0) dt += 604800e0;
-  */
+  // if (dt> 302400e0) dt -= 604800e0;
+  // if (dt<-302400e0) dt += 604800e0;
 #endif
 
   double Ek (0e0);
@@ -223,6 +224,7 @@ const noexcept
 
   return 0;
 }
+*/
 
 /// @brief URA SV accuracy (meters)
 /// Compute User Range Accuracy for given SV. 
@@ -243,11 +245,6 @@ NavDataFrame::ura() const noexcept
   }
   return ura_meters;
 }
-
-/// Brief see Rinex 3.04 par. 6.12
-int
-NavDataFrame::sv_health() const noexcept
-{return static_cast<int>(data__[24]);}
 
 /// Brief see Rinex 3.04 par. 6.11
 int

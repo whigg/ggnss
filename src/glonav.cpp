@@ -58,7 +58,7 @@ constexpr double J2_GLO = 1082625.75e-9;
 constexpr double OMEGA_GLO = 7.2921151467e-5; // rad/s
 
 int
-NavDataFrame::glo_dtsv(double t_mt, double& dtsv)
+NavDataFrame::glo_clock(double t_mt, double& dtsv)
 const noexcept
 {
   const double toe_mt = toe__.sec().to_fractional_seconds();

@@ -69,6 +69,24 @@ public:
     }
     return 100;
   }
+  
+  int
+  sv_health() const
+  {
+    switch (this->sys__) {
+      case (SATELLITE_SYSTEM::glonass): return static_cast<int>(data__[6]);
+      case (SATELLITE_SYSTEM::gps)    : 
+      case (SATELLITE_SYSTEM::galileo): 
+      case (SATELLITE_SYSTEM::beidou) : return static_cast<int>(data__[24]);
+      case (SATELLITE_SYSTEM::sbas)   :
+      case (SATELLITE_SYSTEM::qzss)   :
+      case (SATELLITE_SYSTEM::irnss)  :
+      case (SATELLITE_SYSTEM::mixed)  :
+        std::cerr<<"\n[ERROR] NavDataFrame::sv_health() Cannot handle satellite system: "<<satsys_to_char(sys__);
+        throw std::runtime_error("ERROR] NavDataFrame::sv_clock() Cannot handle satellite system");
+    }
+    return 100;
+  }
 
   /// @brief Reference t to the beggining of ToE (aka 00:00:00 of ToE)
   /// @param[in] t Datetime instance to reference to ToE
@@ -106,7 +124,7 @@ public:
     // if ((status=gps_ecef(t_sec, state))) return status;
     if ((status=this->kepler2state<SATELLITE_SYSTEM::gps>(t_sec, state))) return status;
     t_sec = this->ref2toc<T>(t);
-    status = sv_dtsv<SATELLITE_SYSTEM::gps>(t_sec, dt);
+    status = sv_clock<SATELLITE_SYSTEM::gps>(t_sec, dt);
     //status=gps_dtsv(t_sec, dt);
     return status;
   }
@@ -121,7 +139,7 @@ public:
     // if ((status=gal_ecef(t_sec, state))) return status;
     if ((status=this->kepler2state<SATELLITE_SYSTEM::galileo>(t_sec, state))) return status;
     t_sec = this->ref2toc<T>(t);
-    status=sv_dtsv<SATELLITE_SYSTEM::galileo>(t_sec, dt);
+    status=sv_clock<SATELLITE_SYSTEM::galileo>(t_sec, dt);
     // status=gal_dtsv(t_sec, dt);
     return status;
   }
@@ -136,7 +154,7 @@ public:
     // if ((status=bds_ecef(t_sec, state))) return status;
     if ((status=this->kepler2state<SATELLITE_SYSTEM::beidou>(t_sec, state))) return status;
     t_sec = this->ref2toc<T>(t);
-    status=sv_dtsv<SATELLITE_SYSTEM::beidou>(t_sec, dt);
+    status=sv_clock<SATELLITE_SYSTEM::beidou>(t_sec, dt);
     // status=bds_dtsv(t_sec, dt);
     return status;
   }
@@ -153,7 +171,7 @@ public:
     int status = 0;
     double t_sec = this->ref2toe<T>(t);
     if ((status=glo_ecef(t_sec, state))) return status;
-    if ((status=glo_dtsv(t_sec, dt))) return status;
+    if ((status=glo_clock(t_sec, dt))) return status;
     return 0;
   }
   
@@ -177,6 +195,12 @@ public:
     >
     ngpt::datetime<T>
   toc() const noexcept {return toc__.cast_to<T>();}
+  
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+    ngpt::datetime<T>
+  toe() const noexcept {return toe__.cast_to<T>();}
 
   void
   set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}
@@ -184,7 +208,6 @@ public:
   /* NEW FUNCTIONS */
   // URA for gps
   float ura() const noexcept;
-  int sv_health() const noexcept;
   int fit_interval() const noexcept;
 
   float sisa() const noexcept;
@@ -197,6 +220,11 @@ private:
   ngpt::datetime<ngpt::seconds> toe__{};     ///< Time of ephemeris
   double                        data__[31]{};///< Data block
 
+  /// @brief get SV coordinates and velocity (PZ90) refferenced to SV mass centre
+  int
+  glo_ecef(double tb_sod, double* state)
+  const noexcept;
+  
   /// @brief Transform Keplerian elements to SV coordinates
   ///
   /// This function template replaces functions gps_ecef, gal_ecef and bds_ecef
@@ -296,6 +324,9 @@ private:
     return status;
   }
 
+  int
+  glo_clock(double t_sec, double& dtsv) const noexcept;
+  
   /// @brief Compute SV Clock Correction
   ///
   /// Determine the effective SV PRN code phase offset referenced to the phase 
@@ -330,7 +361,7 @@ private:
   /// @return Anything other than 0 denotes an error
   template<SATELLITE_SYSTEM S>
     int
-    sv_dtsv(double t_sec, double& dt_sv, double* Ein=nullptr)
+    sv_clock(double t_sec, double& dt_sv, double* Ein=nullptr)
     const noexcept
   {
     constexpr double MI_SYS  = ngpt::satellite_system_traits<S>::mi();
@@ -381,26 +412,27 @@ private:
     return 0;
   }
 
-public:
   /// @brief get SV coordinates (WGS84) for SVs' antenna phase centre
+  /* __OBSOLETE__ see kepler2state
   int
   gps_ecef(double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
+  */
   
   /// @brief get SV coordinates (GTRF) from navigation block
+  /* __OBSOLETE__ see kepler2state
   int
   gal_ecef(double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
+  */
   
   /// @brief get SV coordinates (BDCS) from navigation block
+  /* __OBSOLETE__ see kepler2state
   int
   bds_ecef(double t_sec, double* state, double* Ek=nullptr)
   const noexcept;
+  */
   
-  /// @brief get SV coordinates and velocity (PZ90) refferenced to SV mass centre
-  int
-  glo_ecef(double tb_sod, double* state)
-  const noexcept;
   
   /// @brief GPS time of ephemeris to datetime<T> instance
   ///
@@ -506,19 +538,20 @@ public:
       ngpt::cast_to<seconds, T>(seconds(sd_toe)));
   }
 
+  /* __OBSOLETE__ see sv_clock
   int
   gps_dtsv(double t_sec, double& dt_sv, double* Ek_in=nullptr) const noexcept;
-  
+  */
+
+  /* __OBSOLETE__ see sv_clock
   int
   gal_dtsv(double t_sec, double& dt_sv, double* Ek_in=nullptr) const noexcept;
+  */
   
+  /* __OBSOLETE__ see sv_clock
   int
   bds_dtsv(double t_sec, double& dt_sv, double* Ek_in=nullptr) const noexcept;
-  
-  int
-  glo_dtsv(double t_sec, double& dtsv) const noexcept;
-
-
+  */
 };
 
 class NavigationRnx

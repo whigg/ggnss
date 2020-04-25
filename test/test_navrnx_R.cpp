@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
   int it = 0;
   // compute x,y,z for one day, every 15 min
   while (cur_dt_utc<=utc_limit && ++it<1500) {
-    auto tb = block.glo_toe2date<milliseconds>(); // tb in UTC
+    auto tb = block.toe<milliseconds>(); // tb in UTC
     auto sec_diff = delta_sec(tb, cur_dt_utc);
     double delta_sec = sec_diff.to_fractional_seconds(); // tb - ti
     if (std::abs(delta_sec)<15*60e0) {
