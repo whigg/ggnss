@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
   int j=0, block_nr=0;
   while (!j) {
     j = nav.read_next_record(block);
-    if (block.system()==SATELLITE_SYSTEM::gps) std::cout<<"\n[URA] index: "<<block.data(23)<<" Health: "<<block.sv_health()<<" Fit Inrtvl.: "<<block.fit_interval()<<" URA: "<<block.ura()<<" m.";
+    if (block.system()==SATELLITE_SYSTEM::gps) std::cout<<"\n[URA] index: "<<block.data(23)<<" Health: "<<block.sv_health()<<" Fit Inrtvl.: "<<block.fit_interval()<<" URA: "<<block.gps_ura()<<" m.";
     block_nr++;
   }
   std::cout<<"\n# Read "<<block_nr<<" data blocks";
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
   double state[3],dt;
   // compute x,y,z for one day, every 15 min
   while (cur_dt<=cur_dt.add<seconds>(ngpt::modified_julian_day(1))) {
-    if (cur_dt>=navar[0].toc() && cur_dt<navar[1].toc()) {
+    if (cur_dt>=navar[0].toc() && cur_dt<=navar[1].toc()) {
       // compute ecef with navar[0]
       block.gps_stateNclock(cur_dt, state, dt);
       std::cout<<"\n\""<<ngpt::strftime_ymd_hms<seconds>(cur_dt)<<"\" ";

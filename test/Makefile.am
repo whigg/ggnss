@@ -8,6 +8,7 @@ noinst_PROGRAMS = \
                 testNavRnxE.out \
                 testNavRnxC.out \
                 testGloNavJ12.out \
+                testNavRnx.out \
                 testObsRnx.out \
                 pprnx.out
 
@@ -57,6 +58,10 @@ testNavRnxE_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 testNavRnxC_out_SOURCES   = test_navrnx_C.cpp
 testNavRnxC_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
 testNavRnxC_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
+
+testNavRnx_out_SOURCES   = test_navrnx.cpp
+testNavRnx_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
+testNavRnx_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 
 testGloNavJ12_out_SOURCES   = testGloNavJ12.cpp
 testGloNavJ12_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 

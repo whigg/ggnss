@@ -87,6 +87,24 @@ public:
     }
     return 100;
   }
+  
+  long 
+  fit_interval() const
+  {
+    switch (this->sys__) {
+      case (SATELLITE_SYSTEM::glonass): return 15*60L;
+      case (SATELLITE_SYSTEM::gps)    : return gps_fit_interval();
+      case (SATELLITE_SYSTEM::galileo): 
+      case (SATELLITE_SYSTEM::beidou) : return 4L*60*60;
+      case (SATELLITE_SYSTEM::sbas)   :
+      case (SATELLITE_SYSTEM::qzss)   :
+      case (SATELLITE_SYSTEM::irnss)  :
+      case (SATELLITE_SYSTEM::mixed)  :
+        std::cerr<<"\n[ERROR] NavDataFrame::fit_interval() Cannot handle satellite system: "<<satsys_to_char(sys__);
+        throw std::runtime_error("ERROR] NavDataFrame::fit_interval() Cannot handle satellite system");
+    }
+    return 100;
+  }
 
   /// @brief Reference t to the beggining of ToE (aka 00:00:00 of ToE)
   /// @param[in] t Datetime instance to reference to ToE
@@ -206,12 +224,10 @@ public:
   set_toc(ngpt::datetime<ngpt::seconds> d) noexcept {toc__=d;}
 
   /* NEW FUNCTIONS */
-  // URA for gps
-  float ura() const noexcept;
-  int fit_interval() const noexcept;
-
-  float sisa() const noexcept;
-  int iod_nav() const noexcept;
+  int gps_fit_interval() const noexcept;
+  float gps_ura() const noexcept;
+  float gal_sisa() const noexcept;
+  int gal_iod_nav() const noexcept;
 
 private:
   SATELLITE_SYSTEM              sys__{};     ///< Satellite system
@@ -584,7 +600,7 @@ public:
   NavigationRnx& operator=(NavigationRnx&& a) 
   noexcept(std::is_nothrow_move_assignable<std::ifstream>::value) = default;
 
-  /// @brief Read, resolved and store next navigation data block
+  /// @brief Read, resolve and store next navigation data block
   int
   read_next_record(NavDataFrame&) noexcept;
   
@@ -596,6 +612,11 @@ public:
   int
   ignore_next_block() noexcept;
 
+  /// @brief Find next block belonging to a system (and satellite)
+  int
+  find_next(pos_type& curpos, NavDataFrame& frame, SATELLITE_SYSTEM sys, int prn=-1)
+  noexcept;
+
   /// @brief Set the stream to end of header
   void
   rewind() noexcept;
@@ -605,6 +626,10 @@ private:
   /// @brief Read RINEX header; assign info
   int
   read_header() noexcept;
+
+  /// @brief clear the instance stream and return the exit_status
+  int
+  clear_stream(int exit_status) noexcept;
 
   std::string            __filename;    ///< The name of the file
   std::ifstream          __istream;     ///< The infput (file) stream

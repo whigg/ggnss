@@ -256,10 +256,7 @@ NavigationRnx::read_next_record(NavDataFrame& nav) noexcept
   if ( (c=__istream.peek()) != EOF ) {
     return nav.set_from_rnx3(__istream);
   }
-  if (__istream.eof()) {
-    __istream.clear();
-    return -1;
-  }
+  if (__istream.eof()) return clear_stream(-1);
   return 50;
 }
 
@@ -276,10 +273,7 @@ int
 NavigationRnx::ignore_next_block() noexcept
 {
   char s = __istream.peek();
-  if (s == EOF) {
-    __istream.clear();
-    return -1;
-  }
+  if (s==EOF) return clear_stream(-1); 
 
   ngpt::SATELLITE_SYSTEM sys;
   try {
@@ -312,8 +306,8 @@ NavigationRnx::peak_satsys(int& status) noexcept
 {
   status = 0 ;
   char s = __istream.peek();
-  if (s == EOF) {
-    status = -1;
+  if (s==EOF) {
+    status = clear_stream(-1);
     return SATELLITE_SYSTEM::mixed;
   }
 
@@ -333,6 +327,49 @@ NavigationRnx::rewind() noexcept
   __istream.seekg(__end_of_head);
 }
 
+/// @param[out] curpos  Current position (before starting the function) of the
+///                     instane's stream; after the execution you can rewing back
+///                     to curpos and pretend nothing changed
+/// @param[out] frame   NavDataFrame read (if found) that matches the requested
+///                     satellite system and prn
+/// @param[in]  sys     Requested satellite system
+/// @param[in]  prn     Requested prn; if set to -1, it means any satellite of
+///                     the requested satellite system 
+/// @return An integer denoting the following:
+///                     * -1 EOF encountered before matching system and sv
+///                     *  0 All ok! system and sv matched and frame resolved
+///                     * >0 An error occured
+int
+NavigationRnx::find_next(pos_type& curpos, NavDataFrame& frame,
+  SATELLITE_SYSTEM sys, int prn) noexcept
+{
+  curpos = __istream.tellg();
+  int status=0, dummy_it=0;
+  SATELLITE_SYSTEM csys; 
+  do {
+    csys = this->peak_satsys(status);
+    if (status) return status;
+    if (csys==sys) {
+      if ((status=this->read_next_record(frame))) return clear_stream(status);
+      if (prn==-1 || (prn==frame.prn())) return 0;
+    } else {
+      if ((status=this->ignore_next_block())) return clear_stream(status);
+    }
+  } while (dummy_it<5000);
+
+  return 100;
+}
+
+/// Clear the instance's stream (failbit and eofbit) and return the input
+/// parameter exit_status
+/// @param[in] exit_status What the function returns
+/// @return The function returns the exit_status parameter
+int
+NavigationRnx::clear_stream(int exit_status) noexcept
+{
+  __istream.clear();
+  return exit_status;
+}
 /*
 NavDataFrame&
 NavDataFrame::operator=(const NavDataFrame& other) noexcept

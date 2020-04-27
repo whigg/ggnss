@@ -229,7 +229,7 @@ const noexcept
 /// @brief URA SV accuracy (meters)
 /// Compute User Range Accuracy for given SV. 
 float
-NavDataFrame::ura() const noexcept
+NavDataFrame::gps_ura() const noexcept
 {
   float ura_index = data__[23];
   float ura_meters = std::numeric_limits<float>::max();
@@ -246,7 +246,8 @@ NavDataFrame::ura() const noexcept
   return ura_meters;
 }
 
-/// Brief see Rinex 3.04 par. 6.11
+/// @brief see Rinex 3.04 par. 6.11
+/// Fit interval in seconds
 int
-NavDataFrame::fit_interval() const noexcept
-{return static_cast<int>(data__[28]);}
+NavDataFrame::gps_fit_interval() const noexcept
+{return 3600L*static_cast<int>(data__[28]);}

@@ -225,7 +225,7 @@ const noexcept
 */
 
 float
-NavDataFrame::sisa() const noexcept {return static_cast<float>(data__[23]);}
+NavDataFrame::gal_sisa() const noexcept {return static_cast<float>(data__[23]);}
 
 int
-NavDataFrame::iod_nav() const noexcept {return static_cast<int>(data__[3]);}
+NavDataFrame::gal_iod_nav() const noexcept {return static_cast<int>(data__[3]);}
