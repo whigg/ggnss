@@ -322,9 +322,14 @@ NavigationRnx::peak_satsys(int& status) noexcept
 /// @details Set the nav RINEX stream to end of header, ready to restart
 ///          reading nav data blocks
 void
-NavigationRnx::rewind() noexcept
+NavigationRnx::rewind(pos_type pos) noexcept
 {
-  __istream.seekg(__end_of_head);
+  if (pos==pos_type(-1)) {
+    __istream.seekg(__end_of_head);
+  } else {
+    __istream.seekg(pos);
+  }
+  return;
 }
 
 /// @param[out] curpos  Current position (before starting the function) of the

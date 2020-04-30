@@ -204,6 +204,12 @@ public:
 
   int
   prn() const noexcept {return prn__;}
+  
+  SATELLITE_SYSTEM&
+  system() noexcept {return sys__;}
+
+  int&
+  prn() noexcept {return prn__;}
 
   ngpt::datetime<ngpt::seconds>
   toc() const noexcept {return toc__;}
@@ -617,9 +623,65 @@ public:
   find_next(pos_type& curpos, NavDataFrame& frame, SATELLITE_SYSTEM sys, int prn=-1)
   noexcept;
 
-  /// @brief Set the stream to end of header
+  /// @brief Set the stream to end of header or anywhere else
   void
-  rewind() noexcept;
+  rewind(pos_type pos=-1) noexcept;
+
+  /// @param[out] curpos  Current position (before starting the function) of the
+  ///                     instane's stream; after the execution you can rewing back
+  ///                     to curpos and pretend nothing changed
+  /// @param[out] frame   NavDataFrame read (if found) that matches the requested
+  ///                     satellite system and prn
+  /// @param[in]  sys     Requested satellite system
+  /// @param[in]  prn     Requested prn; if set to -1, it means any satellite of
+  ///                     the requested satellite system 
+  /// @return An integer denoting the following:
+  ///                     * -1 EOF encountered before matching system and sv
+  ///                     *  0 All ok! system and sv matched and frame resolved
+  ///                     * >0 An error occured
+  template<typename T,
+    typename = std::enable_if_t<T::is_of_sec_type>
+    >
+  int
+  find_next_valid(const ngpt::datetime<T>& t, pos_type& curpos, 
+    NavDataFrame& frame, SATELLITE_SYSTEM sys, int prn) noexcept
+  {
+    curpos = __istream.tellg();
+    int status=0, dummy_it=0;
+    SATELLITE_SYSTEM csys; 
+    do {
+      csys = this->peak_satsys(status);
+      if (status) return status;
+      if (csys==sys) {
+        if ((status=this->read_next_record(frame))) return clear_stream(status);
+        if (prn==-1 || (prn==frame.prn())) {
+          auto toc = frame.toc<milliseconds>();
+          // are we too far ahead from the input date ??
+          T limitT (3600L * T::template sec_factor<long>()); // 1 hour in T units
+          if (t>toc && ngpt::delta_sec(t, toc)>limitT) return -1;
+          // check SV health
+          if (!(frame.sv_health())) {
+            // check if msg is ok for epoch
+            if (sys!=SATELLITE_SYSTEM::glonass) {
+              auto max_t(toc);
+              max_t.add_seconds(ngpt::seconds(frame.fit_interval()));
+              if (t>=toc && t<max_t) return 0;
+            } else {
+              auto max_t(frame.toe<T>());
+              auto min_t(frame.toe<T>());
+              max_t.add_seconds(ngpt::seconds(frame.fit_interval()));
+              min_t.remove_seconds(ngpt::seconds(frame.fit_interval()));
+              if (t>=min_t && t<max_t) return 0;
+            }
+          }
+        }
+      } else {
+        if ((status=this->ignore_next_block())) return clear_stream(status);
+      }
+    } while (dummy_it<5000);
+
+    return 100;
+  }
 
 private:
   
