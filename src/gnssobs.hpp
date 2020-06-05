@@ -1,6 +1,8 @@
 #ifndef __GNSS_OBS_HPP__
 #define __GNSS_OBS_HPP__
 
+#include <tuple>
+
 /// @file      gnssobs.hpp
 ///
 /// @version   0.10
@@ -151,6 +153,30 @@ public:
   operator!=(const ObservationCode& other) const noexcept
   {return !(*this == other);}
 
+  // @brief Template const getter function (aka instance.get<N>() with 0<=N<3)
+  // @warning this is C++17
+  template<std::size_t N>
+    decltype(auto) get() const noexcept
+  {
+    static_assert(N<3);
+    if      constexpr (N==0) return __type;
+    else if constexpr (N==1) return __band;
+    else                     return __attr;
+  }
+
+  // @brief Template non-const getter function (aka instance.get<N>() with 0<=N<3)
+  // Notice the parenthesis at the return statement; this function returns
+  // references to the instance's members
+  // @warning this is C++17
+  template<std::size_t N>
+    decltype(auto) get() noexcept
+  {
+    static_assert(N<3);
+    if      constexpr (N==0) return (__type);
+    else if constexpr (N==1) return (__band);
+    else                     return (__attr);
+  }
+
 private:
     OBSERVABLE_TYPE      __type;
     int                  __band;
@@ -158,5 +184,19 @@ private:
 }; // ObservationCode
 
 } // ngpt
+
+namespace std {
+// @brief Specialize tuple_size for ngpt::ObservationCode in std (used for
+//        structured bindings)
+template<>
+  struct tuple_size<ngpt::ObservationCode> : integral_constant<size_t, 3> {};
+
+// @brief Specialize tuple_element for ngpt::ObservationCode in std (used for
+//        structured bindings)
+template<size_t N>
+  struct tuple_element<N,ngpt::ObservationCode> {
+    using type = decltype(declval<ngpt::ObservationCode>().get<N>());
+};
+} // std
 
 #endif

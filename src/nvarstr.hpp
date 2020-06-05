@@ -1,6 +1,8 @@
 #ifndef __NTUA_VARIOUS_STR_FUNCTIONS_HPP__
 #define __NTUA_VARIOUS_STR_FUNCTIONS_HPP__
 
+#include <string>
+
 namespace ngpt {
 
 namespace str_algorithm_details {
@@ -89,7 +91,7 @@ template<int N, int M>
     if (line == end) return false;
     line+=M;
   }
-  return (errno) ? false : true;
+  return errno?false:true;
 }
 
 /// @details Resolve a string of N doubles, written with M digits (i.e. in the
@@ -113,7 +115,7 @@ template<int M>
     if (line == end) return false;
     line+=M;
   }
-  return (errno) ? false : true;
+  return errno?false:true;
 }
 
 /// @brief Replace all occurancies of 'D' or 'd' with 'E' in given c-string.

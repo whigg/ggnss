@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <cassert>
 #include "gnssobs.hpp"
 #include "gnssobsrv.hpp"
 
@@ -12,6 +13,23 @@ int main(/*int argc, char* argv[]*/)
   //
   
   int EXIT_STATUS = 0;
+  
+  // First of all, let's check Structured Bindings (for the class)
+  ObservationCode robs("L5Q");
+  auto [t,b,a] = robs;
+  assert(t==ngpt::OBSERVABLE_TYPE::carrier_phase);
+  assert(b==5);
+  assert(a==ngpt::ObservationAttribute('Q'));
+  
+  auto& [tr,br,ar] = robs;
+  assert(tr==ngpt::OBSERVABLE_TYPE::carrier_phase);
+  assert(br==5);
+  assert(ar==ngpt::ObservationAttribute('Q'));
+  tr = ngpt::OBSERVABLE_TYPE::pseudorange;
+  br = 2;
+  ar = ngpt::ObservationAttribute('X');
+  // std::cout<<"\nModified Observation Code to \""<<robs.to_string()<<"\"";
+  assert(robs==ObservationCode("C2X"));
   
   std::vector<std::string> gps_obs = { "C1C", "C1S", "C1L", "C1X", "C1P", 
     "S1C", "S1S", "S1L", "S1X", "S1P", "C1W", "L1W", "D1W", "S1W", "C1Y", 

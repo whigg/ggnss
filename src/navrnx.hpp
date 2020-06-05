@@ -627,6 +627,11 @@ public:
   void
   rewind(pos_type pos=-1) noexcept;
 
+  /// Navigation messages per SV should be sorted chronologicaly in the 
+  /// RINEX file, because if we encounter a message of which the ToC is more
+  /// than four hours ahead of the input date (t), then we will assume that
+  /// no message is found suitable for the given epoch.
+  /// @param[in]  t       The epoch for which we want the message
   /// @param[out] curpos  Current position (before starting the function) of the
   ///                     instane's stream; after the execution you can rewing back
   ///                     to curpos and pretend nothing changed
@@ -646,6 +651,10 @@ public:
   find_next_valid(const ngpt::datetime<T>& t, pos_type& curpos, 
     NavDataFrame& frame, SATELLITE_SYSTEM sys, int prn) noexcept
   {
+    // std::cout<<"\n$$$[DEBUG] Updating msg for t="<<ngpt::strftime_ymd_hms<ngpt::milliseconds>(t);
+#ifdef DEBUG
+    if (!__istream.good()) return 50;
+#endif
     curpos = __istream.tellg();
     int status=0, dummy_it=0;
     SATELLITE_SYSTEM csys; 
@@ -654,17 +663,22 @@ public:
       if (status) return status;
       if (csys==sys) {
         if ((status=this->read_next_record(frame))) return clear_stream(status);
-        if (prn==-1 || (prn==frame.prn())) {
+        if (prn==frame.prn()) {
           auto toc = frame.toc<milliseconds>();
+          // std::cout<<" found msg with ToC "<<ngpt::strftime_ymd_hms<ngpt::milliseconds>(toc);
           // are we too far ahead from the input date ??
-          T limitT (3600L * T::template sec_factor<long>()); // 1 hour in T units
-          if (t>toc && ngpt::delta_sec(t, toc)>limitT) return -1;
+          T limitT (3600L * 4 * T::template sec_factor<long>()); // 4 hour in T units
+          // if (toc>t && ngpt::delta_sec(toc, t)>limitT) std::cout<<" t vs ToC too far away!";
+          if (toc>t && ngpt::delta_sec(toc, t)>limitT) return -1;
           // check SV health
           if (!(frame.sv_health())) {
+            // std::cout<<" SV health ok";
             // check if msg is ok for epoch
             if (sys!=SATELLITE_SYSTEM::glonass) {
               auto max_t(toc);
               max_t.add_seconds(ngpt::seconds(frame.fit_interval()));
+              // std::cout<<" msg valid untill "<<ngpt::strftime_ymd_hms<ngpt::milliseconds>(max_t);
+              // if (t>=toc && t<max_t) std::cout<<" msg OK!"; else std::cout<<" msg not ok!";
               if (t>=toc && t<max_t) return 0;
             } else {
               auto max_t(frame.toe<T>());

@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
   // set starting time
   ngpt::datetime<seconds> cur_dt = navar[0].toc();
   ngpt::datetime_interval<seconds> intrvl (ngpt::modified_julian_day(0), seconds(1*60L));
-  double state[3],dt;
+  double state[3],dt=0e0;
   // compute x,y,z for one day, every 15 min
   while (cur_dt<=cur_dt.add<seconds>(ngpt::modified_julian_day(1))) {
     if (cur_dt>=navar[0].toc() && cur_dt<navar[1].toc()) {

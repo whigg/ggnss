@@ -81,6 +81,10 @@ NavDataFrame::set_from_rnx3(std::ifstream& inp) noexcept
   char line[MAX_RECORD_CHARS];
   char* str_end;
 
+#ifdef DEBUG
+  if (!inp.good()) return 50;
+#endif
+
   // Read the first line.
   // ------------------------------------------------------------
   if (!inp.getline(line, MAX_RECORD_CHARS)) {
@@ -252,6 +256,9 @@ NavigationRnx::read_header() noexcept
 int
 NavigationRnx::read_next_record(NavDataFrame& nav) noexcept
 {
+#ifdef DEBUG
+  if (!__istream.good()) return 50;
+#endif
   int c;
   if ( (c=__istream.peek()) != EOF ) {
     return nav.set_from_rnx3(__istream);
@@ -272,6 +279,9 @@ NavigationRnx::read_next_record(NavDataFrame& nav) noexcept
 int
 NavigationRnx::ignore_next_block() noexcept
 {
+#ifdef DEBUG
+  if (!__istream.good()) return 50;
+#endif
   char s = __istream.peek();
   if (s==EOF) return clear_stream(-1); 
 
@@ -304,6 +314,9 @@ NavigationRnx::ignore_next_block() noexcept
 ngpt::SATELLITE_SYSTEM
 NavigationRnx::peak_satsys(int& status) noexcept
 {
+#ifdef DEBUG
+  if (!__istream.good()) {status=10; return SATELLITE_SYSTEM::mixed;}
+#endif
   status = 0 ;
   char s = __istream.peek();
   if (s==EOF) {
@@ -348,6 +361,9 @@ int
 NavigationRnx::find_next(pos_type& curpos, NavDataFrame& frame,
   SATELLITE_SYSTEM sys, int prn) noexcept
 {
+#ifdef DEBUG
+  if (!__istream.good()) return 50;
+#endif
   curpos = __istream.tellg();
   int status=0, dummy_it=0;
   SATELLITE_SYSTEM csys; 
