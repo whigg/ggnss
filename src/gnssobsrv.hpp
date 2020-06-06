@@ -63,6 +63,28 @@ public:
 
   std::string
   to_string() const noexcept;
+  
+  // @brief Template const getter function (aka instance.get<N>() with 0<=N<2)
+  // @warning this is C++17
+  template<std::size_t N>
+    decltype(auto) get() const noexcept
+  {
+    static_assert(N<2);
+    if constexpr (N==0) return __sys;
+    else                return __code;
+  }
+
+  // @brief Template non-const getter function (aka instance.get<N>() with 0<=N<2)
+  // Notice the parenthesis at the return statement; this function returns
+  // references to the instance's members
+  // @warning this is C++17
+  template<std::size_t N>
+    decltype(auto) get() noexcept
+  {
+    static_assert(N<2);
+    if constexpr (N==0) return (__sys);
+    else                return (__code);
+  }
 
 private:
   ngpt::SATELLITE_SYSTEM __sys;
@@ -145,16 +167,10 @@ public:
   underlying_vector() noexcept {return __vec;}
 
   bool
-  operator==(const GnssObservable& o) const noexcept
-  {
-    std::size_t sz = __vec.size();
-    if (o.__vec.size()!=sz) return false;
-    for (std::size_t i=0; i<sz; i++) if (__vec[i]!=o.__vec[i]) return false;
-    return true;
-  }
+  operator==(const GnssObservable&) const noexcept;
 
   bool
-  operator!=(const GnssObservable& o) const noexcept
+  operator!=(const GnssObservable&) const noexcept
   {return !(*this == o);}
 
   bool
@@ -174,5 +190,19 @@ private:
 }; // class GnssObservable
 
 } // namespace ngpt
+
+namespace std {
+// @brief Specialize tuple_size for ngpt::GnssRawObservable in std (used for
+//        structured bindings)
+template<>
+  struct tuple_size<ngpt::GnssRawObservable> : integral_constant<size_t, 2> {};
+
+// @brief Specialize tuple_element for ngpt::GnssRawObservable in std (used for
+//        structured bindings). No default/empty co'tor, so use declval.
+template<size_t N>
+  struct tuple_element<N,ngpt::GnssRawObservable> {
+    using type = decltype(declval<ngpt::GnssRawObservable>().get<N>());
+};
+} // std
 
 #endif

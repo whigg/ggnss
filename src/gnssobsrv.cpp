@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <algorithm>
 #include "gnssobsrv.hpp"
  
 double
@@ -60,4 +61,15 @@ ngpt::GnssObservable::to_string() const noexcept
   auto len = __vec.size();
   for (std::size_t i=1; i<len; i++) str += ("+" + __vec[i].to_string());
   return str;
+}
+  
+bool
+ngpt::GnssObservable::operator==(const ngpt::GnssObservable& o) const noexcept
+{
+  if (o.__vec.size()!=__vec.size()) return false;
+  for (const auto& i : __vec)
+    if (auto it=std::find_if(o.__vec.begin(), o.__vec.end(), 
+        [&ic=std::as_const(i)](const __ObsPart& p){return p==ic;}); it==o.__vec.end())
+      return false;
+  return true;
 }

@@ -1,5 +1,6 @@
 noinst_PROGRAMS = \
 		testObsCode.out \
+		testObsType.out \
 		testAntenna.out \
 		testAntex.out \
                 testBernSatellit.out \
@@ -30,6 +31,10 @@ AM_LIBS = -lggdatetime -lggeodesy
 testObsCode_out_SOURCES   = test_gnssobs.cpp
 testObsCode_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
 testObsCode_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
+
+testObsType_out_SOURCES   = test_gnssobsrv.cpp
+testObsType_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
+testObsType_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 
 testAntenna_out_SOURCES   = test_antenna.cpp
 testAntenna_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 

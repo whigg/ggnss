@@ -65,3 +65,12 @@ ngpt::__for2cpp__(char* line) noexcept
   }
   return;
 }
+
+bool
+ngpt::string_is_empty(const char* str, std::size_t stop) noexcept
+{
+  std::size_t len = std::strlen(str);
+  if (stop!=(std::size_t)-1 && stop<len) len = stop;
+  for (std::size_t i=0; i<len; i++) if (*(str+i)!=' ') return false;
+  return true;
+}

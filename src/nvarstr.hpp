@@ -129,14 +129,8 @@ __for2cpp__(char* line) noexcept;
 /// @param[in]  stop If specified (aka not equal to size_t(-1)) then the
 ///                  inpit string is considered only up to stop index, aka
 ///                  input string spans [0, stop)
-inline bool
-string_is_empty(const char* str, std::size_t stop=-1) noexcept
-{
-  std::size_t len = std::strlen(str);
-  if (stop!=(std::size_t)-1 && stop<len) len = stop;
-  for (std::size_t i=0; i<len; i++) if (*(str+i)!=' ') return false;
-  return true;
-}
+bool
+string_is_empty(const char* str, std::size_t stop=-1) noexcept;
 
 }// ngpt
 

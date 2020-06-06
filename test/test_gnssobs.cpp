@@ -175,6 +175,7 @@ int main(/*int argc, char* argv[]*/)
     }
   }
 
+  assert(!EXIT_STATUS);
   std::cout << "\n";
   return 0;
 }
