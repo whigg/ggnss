@@ -170,8 +170,8 @@ public:
   operator==(const GnssObservable&) const noexcept;
 
   bool
-  operator!=(const GnssObservable&) const noexcept
-  {return !(*this == o);}
+  operator!=(const GnssObservable& a) const noexcept
+  {return !(*this == a);}
 
   bool
   is_of_mixed_satsys() const noexcept
