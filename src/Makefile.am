@@ -26,7 +26,8 @@ dist_include_HEADERS = \
         antenna_pcv.hpp \
 	antex.hpp \
         navrnx.hpp \
-        obsrnx.hpp
+        obsrnx.hpp \
+        gauss_newton.hpp
 
 dist_libgnss_la_SOURCES = \
         nvarstr.cpp \

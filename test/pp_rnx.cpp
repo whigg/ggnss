@@ -1,9 +1,12 @@
 #include <iostream>
 #include <algorithm>
 #include <cassert>
+#include <array>
 #include "obsrnx.hpp"
 #include "navrnx.hpp"
+#include "ggeodesy/car2ell.hpp"
 #include "ggdatetime/datetime_write.hpp"
+#include "gauss_newton.hpp"
 
 using ngpt::ObservationRnx;
 using ngpt::NavigationRnx;
@@ -18,6 +21,40 @@ using ngpt::milliseconds;
 typedef std::pair<std::size_t, double> id_pair;
 typedef std::vector<id_pair>           vecof_idpair;
 using svdit = std::vector<std::pair<Satellite, std::vector<double>>>::iterator;
+
+constexpr int MAX_SATS = 30;
+
+std::vector<double>
+compute_sat_zenith(int numsats, const std::vector<std::array<double,4>>& states,
+                    double x, double y, double z) {
+  std::vector<double> zenith;
+  zenith.reserve(numsats);
+  double n,e,u,r,znth,lat,lon,hgt;
+
+  ngpt::car2ell<ngpt::ellipsoid::grs80>(x,y,z,lat,lon,hgt);
+  const double cosf = std::cos(lat);
+  const double sinf = std::sin(lat);
+  const double cosl = std::cos(lon);
+  const double sinl = std::sin(lon);
+
+  for (int i=0; i<numsats; i++) {
+    const double xs=states[i][0];
+    const double ys=states[i][1];
+    const double zs=states[i][2];
+    const double dx = xs-x;
+    const double dy = ys-y;
+    const double dz = zs-z;
+    n = -sinf * cosl * dx - sinf * sinl * dy + cosf * dz;
+    e = -sinl * dx        + cosl * dy;
+    u =  cosf * cosl * dx + cosf * sinl * dy + sinf * dz;
+    r = std::sqrt(n*n + e*e + u*u);
+    znth = std::acos(u / r);
+    zenith.push_back(std::cos(znth)*std::cos(znth));
+    assert(znth>=0e0 && znth<=ngpt::DPI/2e0);
+  }
+
+  return zenith;
+}
 
 /// Search through the Navigation RInex file to find a valid message for
 /// the given satellite (resolved from msg) at the given epoch (t).
@@ -126,7 +163,8 @@ int main(int argc, char* argv[])
   std::vector<NavDataFrame> sat_nav_vec; sat_nav_vec.reserve(50);
   
   // use GPS C1C
-  GnssObservable gc1c(SATELLITE_SYSTEM::gps, ObservationCode("C1C"), 1e0);
+  GnssObservable gc1c(SATELLITE_SYSTEM::gps, ObservationCode("C1C"), 2.5457277801631593e0);
+                 gc1c.add(ngpt::SATELLITE_SYSTEM::gps, ObservationCode("C2W"), 1.5457277801631593e0);
   
   // make map to extract GnssObservables for Obs Rnx
   std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>> map;
@@ -147,20 +185,24 @@ int main(int argc, char* argv[])
     sat_obs_vec (obsrnx.initialize_epoch_vector(sat_obs_map));
 
   // go on and collect every epoch ....
-  int status, j;
+  ngpt::Kalman<5> filter{{obsrnx.x_approx(), obsrnx.y_approx(), obsrnx.z_approx(), 10e6, .001e0}};
+  std::vector<double> Obs(MAX_SATS);
+  std::vector<std::array<double,4>> States(MAX_SATS);
+  int status, j, index(0);
   int epoch_counter=0, satsnum;
   ngpt::modified_julian_day mjd;
   double secday, clock, state[6];
   do {
+    // get satellite-observations pairs, aka fill in sat_obs_vec
     status = obsrnx.read_next_epoch(sat_obs_map, sat_obs_vec, satsnum, mjd, secday);
     ngpt::datetime<milliseconds> epoch 
       (mjd, milliseconds(static_cast<long>(secday*milliseconds::sec_factor<double>())));
     // for every sat-obs pair
+    // std::cout<<"\nEpoch: "<<ngpt::strftime_ymd_hms<milliseconds>(epoch)<<" #sats: "<<satsnum;
     for (int i=0; i<satsnum; i++) {
       svdit oit=sat_obs_vec.begin()+i; // iterator to sat_obs_vec
       Satellite cursat(oit->first);    // current satellite
       assert(cursat.system()==SATELLITE_SYSTEM::gps);
-      if (cursat.prn()==4){
       // find satellite's navigation block or read rinex untill we find one
       auto nit = get_valid_msg(navrnx, cursat, epoch, sat_nav_vec, j);
       if (!j) {
@@ -168,15 +210,24 @@ int main(int argc, char* argv[])
         assert(nit!=sat_nav_vec.end());
         assert(cursat.system()==nit->system() && cursat.prn()==nit->prn());
         nit->stateNclock(epoch, state, clock);
+        // std::cout<<"\n\tSV G"<<cursat.prn()<<" C1C: "<<oit->second[0]<<" X:"<< state[0]<<", Y:"<<state[1]<<", Z:"<<state[2]<<" dT:"<<clock;
+        // assign for filter update
+        Obs[index] = oit->second[0];
+        for (int k=0; k<3; k++) {States[index][k]=state[k];} States[index][3]=clock;
+        ++index;
       } else {
         std::cerr<<"\n*** Cannot find valid message for SV "
           <<satsys_to_char(cursat.system())<<cursat.prn()
           <<" Epoch is "<<ngpt::strftime_ymd_hms<milliseconds>(epoch)
           <<" status= "<<j;
       }
-      }
     }
+    auto Zeniths = compute_sat_zenith(index, States, obsrnx.x_approx(), obsrnx.y_approx(), obsrnx.z_approx());
+    filter.update(index, &Obs, &States, secday, &Zeniths);
+    std::cout<<"\n\""<<ngpt::strftime_ymd_hms<milliseconds>(epoch)<<"\" Sats: "<< index;
+    filter.print_state();
     ++epoch_counter;
+    index=0;
   } while (!status);
 
   return status;

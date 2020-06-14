@@ -67,6 +67,11 @@ public:
   int
   max_obs() const noexcept;
 
+  /// @brief Get approximate coordinates
+  double x_approx() const noexcept {return __approx[0];}
+  double y_approx() const noexcept {return __approx[1];}
+  double z_approx() const noexcept {return __approx[2];}
+
 #ifdef DEBUG
   void
   print_members() const noexcept
