@@ -23,6 +23,7 @@ typedef std::vector<id_pair>           vecof_idpair;
 using svdit = std::vector<std::pair<Satellite, std::vector<double>>>::iterator;
 
 constexpr int MAX_SATS = 30;
+constexpr double MIN_ELEVATION = 10e0;
 
 /* bernese manual, p. 188 */
 class Saastamoinen {
@@ -103,7 +104,8 @@ weighting_fun(std::vector<double>& zangles) {
   std::vector<double> v;
   v.reserve(zangles.size());
   std::transform(zangles.begin(), zangles.end(), std::back_inserter(v),[](double a) {
-    return std::cos(a)*std::cos(a);});
+    // return (a>80e0*ngpt::DPI/180e0)?(200e0):(1e0/std::cos(a)*std::cos(a));});
+    return (1e0/std::cos(a)*std::cos(a));});
   return v;
 }
 
@@ -214,9 +216,9 @@ int main(int argc, char* argv[])
   std::vector<NavDataFrame> sat_nav_vec; sat_nav_vec.reserve(50);
   
   // use GPS C1C
-  SATELLITE_SYSTEM satsys = SATELLITE_SYSTEM::galileo;
-  GnssObservable gc1c(satsys, ObservationCode("C1X"), 1e0);/*2.5457277801631593e0);
-                 gc1c.add(ngpt::SATELLITE_SYSTEM::gps, ObservationCode("C2W"), 1.5457277801631593e0);*/
+  SATELLITE_SYSTEM satsys = SATELLITE_SYSTEM::gps;
+  GnssObservable gc1c(satsys, ObservationCode("C1C"), 2.5457277801631593e0);
+                 gc1c.add(ngpt::SATELLITE_SYSTEM::gps, ObservationCode("C2W"), -1.5457277801631593e0);
   
   // make map to extract GnssObservables for Obs Rnx
   std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>> map;
@@ -241,9 +243,9 @@ int main(int argc, char* argv[])
   ngpt::car2ell<ngpt::ellipsoid::grs80>(obsrnx.x_approx(), obsrnx.y_approx(), 
                                         obsrnx.z_approx(),lat,lon,hgt);
   Saastamoinen Trop(hgt);
-  ngpt::Kalman<5> filter{{obsrnx.x_approx()+8.321, 
+  ngpt::Kalman<5> filter{{obsrnx.x_approx()+1.321, 
                           obsrnx.y_approx()-2.987, 
-                          obsrnx.z_approx()-13.568, 1e0, .0e0}, };
+                          obsrnx.z_approx()-1.568, 0.5e6, .0e0}, };
   std::vector<double> Obs(MAX_SATS);
   std::vector<std::array<double,4>> States(MAX_SATS);
   int status, j, index(0);
@@ -255,56 +257,60 @@ int main(int argc, char* argv[])
     status = obsrnx.read_next_epoch(sat_obs_map, sat_obs_vec, satsnum, mjd, secday);
     ngpt::datetime<milliseconds> epoch 
       (mjd, milliseconds(static_cast<long>(secday*milliseconds::sec_factor<double>())));
-    // for every sat-obs pair
-    // std::cout<<"\nEpoch: "<<ngpt::strftime_ymd_hms<milliseconds>(epoch)<<" #sats: "<<satsnum;
-    for (int i=0; i<satsnum; i++) {
-      svdit oit=sat_obs_vec.begin()+i; // iterator to sat_obs_vec
-      if (std::abs(oit->second[0]-ngpt::RNXOBS_MISSING_VAL)>1e-3) {
-        Satellite cursat(oit->first);    // current satellite
-        // assert(cursat.system()==SATELLITE_SYSTEM::gps);
-        // find satellite's navigation block or read rinex untill we find one
-        auto nit = get_valid_msg(navrnx, cursat, epoch, sat_nav_vec, j);
-        if (!j) {
-          // get position and clock bias for satellite
-          assert(nit!=sat_nav_vec.end());
-          assert(cursat.system()==nit->system() && cursat.prn()==nit->prn());
-          nit->stateNclock(epoch, state, clock);
-          // std::cout<<"\n\tSV G"<<cursat.prn()<<" C1C: "<<oit->second[0]<<" X:"<< state[0]<<", Y:"<<state[1]<<", Z:"<<state[2]<<" dT:"<<clock;
-          // assign for filter update
-          Obs[index] = oit->second[0];
-          for (int k=0; k<3; k++) {States[index][k]=state[k];} States[index][3]=clock;
-          ++index;
-        } else {
-          std::cerr<<"\n*** Cannot find valid message for SV "
-            <<satsys_to_char(cursat.system())<<cursat.prn()
-            <<" Epoch is "<<ngpt::strftime_ymd_hms<milliseconds>(epoch)
-            <<" status= "<<j;
+    if (satsnum>4) {
+      // for every sat-obs pair
+      for (int i=0; i<satsnum; i++) {
+        svdit oit=sat_obs_vec.begin()+i; // iterator to sat_obs_vec
+        if (std::abs(oit->second[0]-ngpt::RNXOBS_MISSING_VAL)>1e-3) {
+          Satellite cursat(oit->first);    // current satellite
+          // assert(cursat.system()==SATELLITE_SYSTEM::gps);
+          // find satellite's navigation block or read rinex untill we find one
+          auto nit = get_valid_msg(navrnx, cursat, epoch, sat_nav_vec, j);
+          if (!j) {
+            // get position and clock bias for satellite
+            assert(nit!=sat_nav_vec.end());
+            assert(cursat.system()==nit->system() && cursat.prn()==nit->prn());
+            nit->stateNclock(epoch, state, clock);
+            // std::cout<<"\n\tSV G"<<cursat.prn()<<" C1C: "<<oit->second[0]<<" X:"<< state[0]<<", Y:"<<state[1]<<", Z:"<<state[2]<<" dT:"<<clock;
+            // assign for filter update
+            Obs[index] = oit->second[0];
+            for (int k=0; k<3; k++) {States[index][k]=state[k];} States[index][3]=clock;
+            ++index;
+          } else {
+            std::cerr<<"\n*** Cannot find valid message for SV "
+              <<satsys_to_char(cursat.system())<<cursat.prn()
+              <<" Epoch is "<<ngpt::strftime_ymd_hms<milliseconds>(epoch)
+              <<" status= "<<j;
+          }
         }
       }
-    }
-    // compute zenith angle per observation
-    std::vector<double> zenith_angles;
-    try {
-      zenith_angles = compute_zenith_angles(index, States, obsrnx.x_approx(), 
-                            obsrnx.y_approx(), obsrnx.z_approx(), lat, lon, hgt);
-    } catch (int ernum) {
-      std::cerr<<"\n[ERROR] SV with bad azimouth had obs value "<<Obs[ernum];
-      std::cerr<<"\n[ERROR] Num of sats was "<<index;
-      zenith_angles.clear();
-    }
-    if (zenith_angles.size()) {
-      // compute and apply Saastamoinen
-      auto dT = Trop.correction(zenith_angles);
-      std::transform(Obs.begin(), Obs.begin()+index, dT.begin(), Obs.begin(), std::minus<double>());
-      // compute weight per observation
-      auto W = weighting_fun(zenith_angles);
-      // Kalman update
-      // for (int i=0;i<index;i++) std::cout<<"\nPseudorange["<<i<<"] = "<<Obs[i];
-      filter.update(index, &Obs, &States, secday, &W);
-      std::cout<<"\n\""<<ngpt::strftime_ymd_hms<milliseconds>(epoch)<<"\" Sats: "<< index<<" ";
-      //if (epoch_counter>2) return 80;
-      filter.print_state();
+      // compute zenith angle per observation
+      std::vector<double> zenith_angles;
+      try {
+        zenith_angles = compute_zenith_angles(index, States, obsrnx.x_approx(), 
+            obsrnx.y_approx(), obsrnx.z_approx(), lat, lon, hgt);
+      } catch (int ernum) {
+        std::cerr<<"\n[ERROR] SV with bad azimouth had obs value "<<Obs[ernum];
+        std::cerr<<"\n[ERROR] Num of sats was "<<index;
+        zenith_angles.clear();
+      }
+      if (zenith_angles.size()) {
+        // compute and apply Saastamoinen
+        auto dT = Trop.correction(zenith_angles);
+        std::transform(Obs.begin(), Obs.begin()+index, dT.begin(), Obs.begin(), std::minus<double>());
+        // compute weight per observation
+        auto W = weighting_fun(zenith_angles);
+        // Kalman update
+        // for (int i=0;i<index;i++) std::cout<<"\nPseudorange["<<i<<"] = "<<Obs[i];
+        filter.update(index, &Obs, &States, secday, &W);
+        std::cout<<"\n\""<<ngpt::strftime_ymd_hms<milliseconds>(epoch)<<"\" Sats: "<< index<<" ";
+        //if (epoch_counter>2) return 80;
+        filter.print_state();
+      } else {
+        std::cout<<"\n---- No filtering for this epoch!";
+      }
     } else {
+      std::cout<<"\n[DEBUG] Epoch with too few SVs ("<<satsnum<<") "<<ngpt::strftime_ymd_hms<milliseconds>(epoch);
       std::cout<<"\n---- No filtering for this epoch!";
     }
     ++epoch_counter;

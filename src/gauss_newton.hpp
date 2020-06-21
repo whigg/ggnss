@@ -62,7 +62,7 @@ public:
     if (dbg) std::cout<<"\nNext P=\n"<<P_;
     // residual covariance: S = H(1)*P(1|0)*H^T(1) + R(1)
     Eigen::MatrixXd S (H_ * P_ * H_.transpose());
-    if (w) for (int i=0; i<nsats_; i++) S(i,i) += (20e0 + (*w)[i]);
+    if (w) for (int i=0; i<nsats_; i++) S(i,i) += (100e0 + (*w)[i]);
     if (dbg) std::cout<<"\nResidual cov\n"<<S;
     // filter gain W: W = P(1|0) * H^T(1) *S^-1(1)
     Eigen::MatrixXd W = P_ * H_.transpose() * S.inverse();
@@ -102,7 +102,8 @@ private:
   };
 
   void
-  initialize_P(double sigma=5e-1) {
+  initialize_P(/*double sigma=5e-1*/) {
+    /*
     double s2=sigma*sigma;
     P_ = Eigen::Matrix<double,Params,Params>::Identity();
     Eigen::DiagonalMatrix<double,Eigen::Dynamic> R(nsats_);
@@ -113,14 +114,13 @@ private:
     P_.row(Params-1).setZero();
     P_.col(Params-1).setZero();
     P_(Params-1,Params-1) = 0.0039*2e0;
-    // std::cout<<"\nMatrix P:\n"<<P_;
-    /*
-    P_ = Eigen::Matrix<double,Params,Params>::Identity();
-    P_ *= 0.0000025;
-    P_.row(4).setZero();
-    P_.col(4).setZero();
-    P_(4,4) = 0.0039*0.0039;
     */
+    // std::cout<<"\nMatrix P:\n"<<P_;
+    P_ = Eigen::Matrix<double,Params,Params>::Identity();
+    for (int i=0; i<Params; i++) P_(i,i) = 50e0*50e0;
+    // P_.row(4).setZero();
+    // P_.col(4).setZero();
+    P_(4,4) = 30e0;/*0.0039*0.0039;*/
     return;
   }
 
