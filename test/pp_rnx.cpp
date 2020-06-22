@@ -307,11 +307,11 @@ int main(int argc, char* argv[])
         //if (epoch_counter>2) return 80;
         filter.print_state();
       } else {
-        std::cout<<"\n---- No filtering for this epoch!";
+        std::cerr<<"\n---- No filtering for this epoch!";
       }
     } else {
-      std::cout<<"\n[DEBUG] Epoch with too few SVs ("<<satsnum<<") "<<ngpt::strftime_ymd_hms<milliseconds>(epoch);
-      std::cout<<"\n---- No filtering for this epoch!";
+      std::cerr<<"\n[DEBUG] Epoch with too few SVs ("<<satsnum<<") "<<ngpt::strftime_ymd_hms<milliseconds>(epoch);
+      std::cerr<<"\n---- No filtering for this epoch!";
     }
     ++epoch_counter;
     index=0;

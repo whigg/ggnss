@@ -27,6 +27,7 @@ dist_include_HEADERS = \
 	antex.hpp \
         navrnx.hpp \
         obsrnx.hpp \
+	sp3c.hpp \
         gauss_newton.hpp
 
 dist_libgnss_la_SOURCES = \
@@ -43,4 +44,5 @@ dist_libgnss_la_SOURCES = \
 	galnav.cpp \
 	glonav.cpp \
         bdsnav.cpp \
-        obsrnx.cpp
+        obsrnx.cpp \
+	sp3c.cpp
