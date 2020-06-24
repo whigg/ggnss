@@ -3,8 +3,8 @@
 #include <cstring>
 #include <stdexcept>
 #include <cerrno>
+#include <algorithm>
 #include "sp3c.hpp"
-#include "nvarstr.hpp"
 #include "ggdatetime/datetime_read.hpp"
 
 using ngpt::Sp3c;
@@ -85,7 +85,7 @@ Sp3c::read_header() noexcept
     errno = 0;
     return 15;
   }
-  double sec = std::strtof(line+20, &str_end);    // read seconds
+  double sec = std::strtod(line+20, &str_end);    // read seconds
   
   num_epochs__ = std::strtol(line+32, &str_end, 10); // read number of epochs
   if (!num_epochs__ || errno == ERANGE) {
@@ -113,7 +113,7 @@ Sp3c::read_header() noexcept
     errno = 0;
     return 21;
   }
-  sec = std::strtof(line+8, &str_end);
+  sec = std::strtod(line+8, &str_end);
   // validate start epoch (#1)
   ngpt::microseconds sw;
   auto gwk1 = start_epoch__.as_gps_wsow(sw);
@@ -121,14 +121,14 @@ Sp3c::read_header() noexcept
     std::cerr<<"\n[ERROR] Sp3c::read_header() Failed to validate start date";
     return 22;
   }
-  sec = std::strtof(line+24, &str_end);
+  sec = std::strtod(line+24, &str_end);
   interval__ = ngpt::microseconds(static_cast<long>(sec*1e6));
   int mjd = std::strtol(line+39, &str_end, 10);
   if (!mjd || errno == ERANGE) {
     errno = 0;
     return 23;
   }
-  sec = std::strtof(line+45, &str_end);
+  sec = std::strtod(line+45, &str_end);
   sec += mjd;
   if (sec!=start_epoch__.as_mjd()) {
     std::cerr<<"\n[ERROR] Sp3c::read_header() Failed to validate start date";
@@ -142,11 +142,15 @@ Sp3c::read_header() noexcept
   // ------------------------------------------------------------
   __istream.getline(line, MAX_HEADER_CHARS);
   if (*line!='+' || line[1]!=' ') return 30;
+  num_sats__ = std::strtol(line+3, &str_end, 10);
+  if (!num_sats__ || errno == ERANGE) {
+    errno = 0; return 31;
+  }
   while (++dummy_it<MAX_HEADER_LINES && !std::strncmp(line, "+ ", 2) ) {
     __istream.getline(line, MAX_HEADER_CHARS);
   }
   if (dummy_it >= MAX_HEADER_LINES) {
-    return 31;
+    return 32;
   }
   
   // Read the satellite accuracy lines; they must be at least 5, but there is 
@@ -201,5 +205,142 @@ Sp3c::read_header() noexcept
   __end_of_head = __istream.tellg();
 
   // All done !
+  return 0;
+}
+
+/// @return <0: EOF
+///          0: ok
+///         >0: error
+int
+Sp3c::get_next_epoch(ngpt::datetime<ngpt::microseconds>& t, std::vector<Sp3EpochSvRecord>& vec, int& sats_read)
+noexcept
+{
+  char line[MAX_RECORD_CHARS];
+  char* end, *start, c;
+  int date[5];
+
+  if (!__istream.good()) return 1;
+  __istream.getline(line, MAX_RECORD_CHARS);
+  
+  if (line[0]!='*' || line[1]!=' ') {
+    std::cerr<<"\n[ERROR] WTF?? Expected epoch header, got \""<<line<<"\"";
+    return 2;
+  }
+  date[0] = std::strtol(line+3, &end, 10);
+  if (!date[0] || errno==ERANGE) {
+    errno = 0; return 5;
+  }
+  start = line+8;
+  for (int i=1; i<5; i++) {
+    date[i] = std::strtol(start, &end, 10);
+    if (errno==ERANGE || end==start) {
+      errno=0; return 5+i;
+    }
+    start+=3;
+  }
+  double fsec = std::strtod(start, &end);
+  if (errno==ERANGE || end==start) {
+    errno = 0; return 11;
+  }
+
+  t = ngpt::datetime<ngpt::microseconds>(ngpt::year(date[0]), 
+      ngpt::month(date[1]),
+      ngpt::day_of_month(date[2]),
+      ngpt::hours(date[3]),
+      ngpt::minutes(date[4]),
+      ngpt::microseconds(static_cast<long>(fsec*1e6)));
+
+  ngpt::SATELLITE_SYSTEM sys;
+  int prn, j=0;
+  std::array<double,4> state;
+  Sp3Flag flag;
+  bool keep_reading=true;
+  auto it = vec.begin();
+  /* possible following lines (three first chars):
+   * 1. '*  ' i.e an epoch header
+   * 2. 'PXX' i.e. a position & clock line, e.g. 'PG01 ....'
+   * 3. 'EP ' i.e. position and clock correlation
+   * 4. 'VXX' i.e. velocity line, e.g. 'VG01 ...'
+   * 5. 'EV ' i.e. velocity correlation
+   * 6. 'EOF' i.e. EOF
+   */
+  do {
+    c = __istream.peek();
+    if (c!='*') {
+      __istream.getline(line, MAX_RECORD_CHARS);
+      if (*line=='P') {/* position and clock line */
+        if ((j=get_next_position(line, sys, prn, state, flag))) return j+20;
+        *it = Sp3EpochSvRecord{sys, prn, state, flag};
+        ++it;
+      } else if (!std::strncmp(line, "EOF", 3)) {/* EOF */
+        keep_reading=false;
+        j=-1;
+      } else {/* any other line is irrelevant */
+        ;
+      }
+    } else {/* next line is header line */
+      keep_reading=false;
+    }
+  } while(keep_reading);
+
+  sats_read = std::distance(vec.begin(), it);
+  return 0;
+}
+
+/// @brief
+/// @param[out] s   The resolved satellite system
+/// @param[out] prn The PRN of the satellite
+/// @param[out] state The state vector, aka SV x,y,z and clock correction;
+///                 Note that the components x,y and z are in meters and the
+///                 clock correction is in microsec
+/// @param[out] flag An Sp3Flag instance to hold all the flags for this record
+int
+Sp3c::get_next_position(char* line, ngpt::SATELLITE_SYSTEM& s, int& prn,
+                        std::array<double,4>& state, Sp3Flag& flag)
+noexcept
+{
+  char* end, *start;
+  flag.reset();
+  
+  // __istream.getline(line, MAX_RECORD_CHARS);
+  // if (!__istream.good()) return 1;
+  if (*line!='P') return 2;
+  
+  try {
+    s = ngpt::char_to_satsys(line[1]);
+  } catch (std::runtime_error& e) {
+    return 3;
+  }
+  prn = std::strtol(line+2, &end, 10);
+  if (errno==ERANGE || end==line+2) {
+    errno = 0;
+    return 4;
+  }
+
+  start = line+4;
+  for (int i=0; i<4; i++) {
+    state[i] = std::strtod(start, &end);
+    if (errno==ERANGE || end==start) {
+      errno = 0;
+      return 5+i;
+    }
+    start+=14;
+  }
+
+  state[0]*=1e3;
+  state[1]*=1e3;
+  state[2]*=1e3;
+
+  if (std::any_of(state.begin(), state.begin()+3,
+                  [](double d){
+                    return d==SP3_MISSING_POS_VALUE;})) {
+    flag.set(Sp3Event::bad_abscent_position);
+  }
+  if (state[3]>=SP3_MISSING_CLK_VALUE) flag.set(Sp3Event::bad_abscent_clock);
+  if (line[74]=='E') flag.set(Sp3Event::clock_event);
+  if (line[75]=='P') flag.set(Sp3Event::clock_prediction);
+  if (line[78]=='M') flag.set(Sp3Event::maneuver);
+  if (line[79]=='E') flag.set(Sp3Event::orbit_prediction);
+
   return 0;
 }

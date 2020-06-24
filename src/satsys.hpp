@@ -221,7 +221,12 @@ template<>
   static constexpr double omegae_dot() {return 7.2921150e-5;}
 
   /// Constant F for SV Clock Correction in seconds/sqrt(meters)
-  static constexpr double f_clock()
+  /// Note that std::sqrt is not constexpr (but it is for gcc)
+  static
+#if defined(__GNUC__)
+  constexpr
+#endif
+  double f_clock()
   {
     constexpr double par = 2.99792458e8 * 2.99792458e8;
     return -2e0 * std::sqrt(3.986004418e14) / par;
