@@ -92,6 +92,12 @@ public:
     return std::vector<Sp3EpochSvRecord>(num_sats__, Sp3EpochSvRecord());
   }
 
+  auto
+  interval() const noexcept {return interval__;}
+  
+  auto
+  num_sats() const noexcept {return num_sats__;}
+
 #ifdef DEBUG
   void
   print_members() const noexcept
@@ -138,6 +144,62 @@ private:
   SATELLITE_SYSTEM       __satsys;      ///< satellite system
   pos_type               __end_of_head; ///< Mark the 'END OF HEADER' field
 };// Sp3c
+
+template<int SEC>
+class LagrangeSp3Interpolator {
+public:
+  LagrangeSp3Interpolator(Sp3c& sp3) noexcept
+    : sp3_(&sp3),
+      K((2*SEC*1000000L)/sp3_->interval().as_underlying_type()+1),
+      running_sv(0)
+    {
+      svec_.reserve(sp3_->num_sats());
+      for (int i=0; i<sp3_->num_sats(); i++) {
+        // svec_.emplace_back(std::vector<Sp3EpochSvRecord>(2*K, {}));
+        svec[i].emplace_back(std::vector<Sp3EpochSvRecord>({}));
+        svec[i].reserve(2*K);
+      }
+      tvec_.reserve(2*K);
+    };
+
+    int
+    initialize() {
+      sp3_->rewind();
+      int j,nsats,k=0;
+      ngpt::datetime<ngpt::microseconds> t;
+      auto vec = sp3_->allocate_epoch_vector();
+      while () {
+        j = sp3_->get_next_epoch(t, vec, nsats);
+        if (j) return j;
+        tvec_.push_back(t);
+        if (!k) {
+          for (int i=0; i<nsats; i++) svec_[i][0] = vec[i];
+          running_sv = nsats;
+        } else {
+          SATELLITE_SYSTEM s;
+          int prn;
+          for (int i=0; i<nsats; i++) {
+            s = vec[i].s_;
+            prn = vec[i].prn_;
+            auto it = std::find_if(svec_.begin(), svec.begin()+running_sv, 
+                      [=](const std::vector<Sp3EpochSvRecord>& i)
+                        {return i[0].s_==s && i[0].prn_==prn;}
+                      );
+            if (it==svec_.end()) {
+
+            } else {
+              it->emplace_back(vec[i]);
+            }
+          }
+        }
+    }
+
+private:
+  Sp3c* sp3_;
+  int K, running_sv;;
+  std::vector<std::vector<Sp3EpochSvRecord>> svec_;
+  std::vector<ngpt::datetime<ngpt::microseconds>> tvec_;
+};
 
 }// ngpt
 

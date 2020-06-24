@@ -38,6 +38,17 @@ Sp3c::Sp3c(const char* filename)
   }
 }
 
+void
+Sp3c::rewind(pos_type pos) noexcept
+{
+  if (pos==pos_type(-1)) {
+    __istream.seekg(__end_of_head);
+  } else {
+    __istream.seekg(pos);
+  }
+  return;
+}
+
 /// Read a, Sp3c file header and assign vital information.
 /// The function will read all header lines, stoping after the line:
 /// @return  Anything other than 0 denotes an error.
@@ -208,11 +219,23 @@ Sp3c::read_header() noexcept
   return 0;
 }
 
+/// @brief Read next epoch off from an Sp3c instance
+/// This will collect the epoch, aka all position and clock values for all
+/// SVs in the next epoch. The records will be collected in the vec vector.
+/// The actuall number of SV/records collected will be sats_read.
+/// Note that the vector vec may have actual size larger than sats_read (i.e.
+/// vec.size() > sats_read) but only the first sats_read elements are valid for 
+/// this epoch.
+/// @param[out] t   The epoch read in 
+/// @param[out] vec Sp3 records for all SVs in epoch t; number of valid 
+///                 elements is sats_read
+/// @param[out] sats_read Number of SV records read in for epoch t
 /// @return <0: EOF
 ///          0: ok
 ///         >0: error
 int
-Sp3c::get_next_epoch(ngpt::datetime<ngpt::microseconds>& t, std::vector<Sp3EpochSvRecord>& vec, int& sats_read)
+Sp3c::get_next_epoch(ngpt::datetime<ngpt::microseconds>& t, 
+                     std::vector<Sp3EpochSvRecord>& vec, int& sats_read)
 noexcept
 {
   char line[MAX_RECORD_CHARS];
@@ -222,10 +245,7 @@ noexcept
   if (!__istream.good()) return 1;
   __istream.getline(line, MAX_RECORD_CHARS);
   
-  if (line[0]!='*' || line[1]!=' ') {
-    std::cerr<<"\n[ERROR] WTF?? Expected epoch header, got \""<<line<<"\"";
-    return 2;
-  }
+  if (line[0]!='*' || line[1]!=' ') return 2;
   date[0] = std::strtol(line+3, &end, 10);
   if (!date[0] || errno==ERANGE) {
     errno = 0; return 5;
@@ -284,16 +304,19 @@ noexcept
   } while(keep_reading);
 
   sats_read = std::distance(vec.begin(), it);
-  return 0;
+  return j;
 }
 
-/// @brief
+/// @brief  Resolve an Sp3 Position & Clock line (aka a line starting with 'P')
 /// @param[out] s   The resolved satellite system
 /// @param[out] prn The PRN of the satellite
 /// @param[out] state The state vector, aka SV x,y,z and clock correction;
 ///                 Note that the components x,y and z are in meters and the
 ///                 clock correction is in microsec
 /// @param[out] flag An Sp3Flag instance to hold all the flags for this record
+/// @note If a record has a missing position value (for any component), the flag
+///       Sp3Event::bad_abscent_position will be set; if it has an absent clock
+///       value, the Sp3Event::bad_abscent_clock flag will be set
 int
 Sp3c::get_next_position(char* line, ngpt::SATELLITE_SYSTEM& s, int& prn,
                         std::array<double,4>& state, Sp3Flag& flag)
@@ -302,8 +325,6 @@ noexcept
   char* end, *start;
   flag.reset();
   
-  // __istream.getline(line, MAX_RECORD_CHARS);
-  // if (!__istream.good()) return 1;
   if (*line!='P') return 2;
   
   try {

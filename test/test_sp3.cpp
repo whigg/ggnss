@@ -18,12 +18,14 @@ int main(int argc, char* argv[])
 
   auto vec = sp3.allocate_epoch_vector();
 
-  int j, nsats;
+  int j, nsats, epochs=0;
   ngpt::datetime<ngpt::microseconds> t;
   do {
     j = sp3.get_next_epoch(t, vec, nsats);
+    ++epochs;
   } while (!j);
 
+  std::cout<<"\nRead "<<epochs<<" epochs.";
   if (j>0) std::cout<<"\n[ERROR] While reading s3 file; error code #"<<j;
   if (j<0) std::cout<<"\nOK, EOF encountered in sp3";
 
