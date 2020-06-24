@@ -11,8 +11,8 @@ noinst_PROGRAMS = \
                 testGloNavJ12.out \
                 testNavRnx.out \
                 testObsRnx.out \
-		testSp3.out
-#               pprnx.out
+		testSp3.out \
+                pprnx.out
 
 MCXXFLAGS = \
 	-std=c++17 \
@@ -81,6 +81,6 @@ testSp3_out_SOURCES   = test_sp3.cpp
 testSp3_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
 testSp3_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
 
-# pprnx_out_SOURCES   = pp_rnx.cpp
-# pprnx_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
-# pprnx_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)
+pprnx_out_SOURCES   = pp_rnx.cpp
+pprnx_out_CXXFLAGS  = $(MCXXFLAGS) -I$(top_srcdir)/src 
+pprnx_out_LDADD     = $(top_srcdir)/src/libgnss.la $(AM_LIBS)

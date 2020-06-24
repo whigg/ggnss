@@ -25,6 +25,11 @@ int main(int argc, char* argv[])
     ++epochs;
   } while (!j);
 
+  /*
+  ngpt::LagrangeSp3Interpolator<3600> Lgrng(sp3);
+  j = Lgrng.initialize();
+  */
+
   std::cout<<"\nRead "<<epochs<<" epochs.";
   if (j>0) std::cout<<"\n[ERROR] While reading s3 file; error code #"<<j;
   if (j<0) std::cout<<"\nOK, EOF encountered in sp3";

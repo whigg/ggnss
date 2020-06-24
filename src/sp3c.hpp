@@ -5,6 +5,7 @@
 #include <limits>
 #include <array>
 #include <vector>
+#include <algorithm>
 #include "ggdatetime/dtcalendar.hpp"
 #include "satsys.hpp"
 #ifdef DEBUG
@@ -156,8 +157,8 @@ public:
       svec_.reserve(sp3_->num_sats());
       for (int i=0; i<sp3_->num_sats(); i++) {
         // svec_.emplace_back(std::vector<Sp3EpochSvRecord>(2*K, {}));
-        svec[i].emplace_back(std::vector<Sp3EpochSvRecord>({}));
-        svec[i].reserve(2*K);
+        svec_[i] = std::vector<Sp3EpochSvRecord>{1,{}};
+        svec_[i].reserve(2*K);
       }
       tvec_.reserve(2*K);
     };
@@ -168,7 +169,7 @@ public:
       int j,nsats,k=0;
       ngpt::datetime<ngpt::microseconds> t;
       auto vec = sp3_->allocate_epoch_vector();
-      while () {
+      while (!j && k<K+1) {
         j = sp3_->get_next_epoch(t, vec, nsats);
         if (j) return j;
         tvec_.push_back(t);
@@ -181,22 +182,26 @@ public:
           for (int i=0; i<nsats; i++) {
             s = vec[i].s_;
             prn = vec[i].prn_;
-            auto it = std::find_if(svec_.begin(), svec.begin()+running_sv, 
-                      [=](const std::vector<Sp3EpochSvRecord>& i)
-                        {return i[0].s_==s && i[0].prn_==prn;}
+            auto it = std::find_if(svec_.begin(), svec_.begin()+running_sv, 
+                      [=](const std::vector<Sp3EpochSvRecord>& e)
+                        {return e[0].s_==s && e[0].prn_==prn;}
                       );
-            if (it==svec_.end()) {
-
+            if (it==svec_.begin()+running_sv) {
+              svec_[running_sv][0]=vec[i];
+              ++running_sv;
             } else {
               it->emplace_back(vec[i]);
             }
           }
         }
+        ++k;
+      }
+      return 0;
     }
 
 private:
   Sp3c* sp3_;
-  int K, running_sv;;
+  int K, running_sv;
   std::vector<std::vector<Sp3EpochSvRecord>> svec_;
   std::vector<ngpt::datetime<ngpt::microseconds>> tvec_;
 };

@@ -177,8 +177,8 @@ get_valid_msg(NavigationRnx& nav, const Satellite& sat,
   NavDataFrame msg; msg.system()=sat.system(); msg.prn()=sat.prn();
   int j=update_msg(t, nav, msg);
   if (j) {
-    std::cerr<<" failed to valid new valid message for epoch: "
-      <<ngpt::strftime_ymd_hms<milliseconds>(t);
+    //std::cerr<<" failed to valid new valid message for epoch: "
+    //  <<ngpt::strftime_ymd_hms<milliseconds>(t);
     status=j;
     return sat_nav_vec.end();
   } else {
@@ -257,13 +257,14 @@ int main(int argc, char* argv[])
     status = obsrnx.read_next_epoch(sat_obs_map, sat_obs_vec, satsnum, mjd, secday);
     ngpt::datetime<milliseconds> epoch 
       (mjd, milliseconds(static_cast<long>(secday*milliseconds::sec_factor<double>())));
+    std::cerr<<"\n[DEBUG] Epoch "<<ngpt::strftime_ymd_hms<milliseconds>(epoch);
     if (satsnum>4) {
       // for every sat-obs pair
       for (int i=0; i<satsnum; i++) {
         svdit oit=sat_obs_vec.begin()+i; // iterator to sat_obs_vec
+        std::cerr<<" / SV:"<<satsys_to_char(oit->first.system())<<oit->first.prn();
         if (std::abs(oit->second[0]-ngpt::RNXOBS_MISSING_VAL)>1e-3) {
           Satellite cursat(oit->first);    // current satellite
-          // assert(cursat.system()==SATELLITE_SYSTEM::gps);
           // find satellite's navigation block or read rinex untill we find one
           auto nit = get_valid_msg(navrnx, cursat, epoch, sat_nav_vec, j);
           if (!j) {
@@ -276,12 +277,16 @@ int main(int argc, char* argv[])
             Obs[index] = oit->second[0];
             for (int k=0; k<3; k++) {States[index][k]=state[k];} States[index][3]=clock;
             ++index;
+            std::cerr<<":OK";
           } else {
-            std::cerr<<"\n*** Cannot find valid message for SV "
+            /*std::cerr<<"\n*** Cannot find valid message for SV "
               <<satsys_to_char(cursat.system())<<cursat.prn()
               <<" Epoch is "<<ngpt::strftime_ymd_hms<milliseconds>(epoch)
-              <<" status= "<<j;
+              <<" status= "<<j;*/
+            std::cerr<<":NVM";
           }
+        } else {
+          std::cerr<<":NaN";
         }
       }
       // compute zenith angle per observation
