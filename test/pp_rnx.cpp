@@ -4,6 +4,7 @@
 #include <array>
 #include "obsrnx.hpp"
 #include "navrnx.hpp"
+#include "ggeodesy/geodesy.hpp"
 #include "ggeodesy/car2ell.hpp"
 #include "ggdatetime/datetime_write.hpp"
 #include "gauss_newton.hpp"
@@ -24,6 +25,8 @@ using svdit = std::vector<std::pair<Satellite, std::vector<double>>>::iterator;
 
 constexpr int MAX_SATS = 30;
 constexpr double MIN_ELEVATION = 10e0;
+constexpr double MAX_ZENITH_ANGLE = 90 - MIN_ELEVATION;
+// constexpr std::vector<Satellite> exclude_sv;
 
 /* bernese manual, p. 188 */
 class Saastamoinen {
@@ -59,6 +62,27 @@ private:
     e = R*exp(-37.2465e0+0.213166*T-std::pow(0.000256908,2e0));
   }
 };
+
+double
+sv_zen_angle(double sinf, double cosf, double sinl, double cosl, double x, double y, double z, const double* state)
+{
+    const double xs=state[0];
+    const double ys=state[1];
+    const double zs=state[2];
+    const double dx = xs-x;
+    const double dy = ys-y;
+    const double dz = zs-z;
+    const double n = -sinf * cosl * dx - sinf * sinl * dy + cosf * dz;
+    const double e = -sinl * dx        + cosl * dy;
+    const double u =  cosf * cosl * dx + cosf * sinl * dy + sinf * dz;
+    const double r = std::sqrt(n*n + e*e + u*u);
+    double znth = std::acos(u / r);
+    if (znth<-0.2e0 || znth>ngpt::DPI/2e0+0.2) {
+      std::cerr<<"\n[ERROR] Zenith angle out of limits! Value is "<<ngpt::rad2deg(znth);
+      throw 120;
+    }
+    return ngpt::rad2deg(znth);
+}
 
 std::vector<double>
 compute_zenith_angles(int numsats, const std::vector<std::array<double,4>>& states,
@@ -242,6 +266,10 @@ int main(int argc, char* argv[])
   double lat, lon, hgt;
   ngpt::car2ell<ngpt::ellipsoid::grs80>(obsrnx.x_approx(), obsrnx.y_approx(), 
                                         obsrnx.z_approx(),lat,lon,hgt);
+  const double cosf = std::cos(lat);
+  const double sinf = std::sin(lat);
+  const double cosl = std::cos(lon);
+  const double sinl = std::sin(lon);
   Saastamoinen Trop(hgt);
   ngpt::Kalman<5> filter{{obsrnx.x_approx()+1.321, 
                           obsrnx.y_approx()-2.987, 
@@ -257,12 +285,12 @@ int main(int argc, char* argv[])
     status = obsrnx.read_next_epoch(sat_obs_map, sat_obs_vec, satsnum, mjd, secday);
     ngpt::datetime<milliseconds> epoch 
       (mjd, milliseconds(static_cast<long>(secday*milliseconds::sec_factor<double>())));
-    std::cerr<<"\n[DEBUG] Epoch "<<ngpt::strftime_ymd_hms<milliseconds>(epoch);
+    // std::cerr<<"\n[DEBUG] Epoch "<<ngpt::strftime_ymd_hms<milliseconds>(epoch);
     if (satsnum>4) {
       // for every sat-obs pair
       for (int i=0; i<satsnum; i++) {
         svdit oit=sat_obs_vec.begin()+i; // iterator to sat_obs_vec
-        std::cerr<<" / SV:"<<satsys_to_char(oit->first.system())<<oit->first.prn();
+        // std::cerr<<" / SV:"<<satsys_to_char(oit->first.system())<<oit->first.prn();
         if (std::abs(oit->second[0]-ngpt::RNXOBS_MISSING_VAL)>1e-3) {
           Satellite cursat(oit->first);    // current satellite
           // find satellite's navigation block or read rinex untill we find one
@@ -272,21 +300,27 @@ int main(int argc, char* argv[])
             assert(nit!=sat_nav_vec.end());
             assert(cursat.system()==nit->system() && cursat.prn()==nit->prn());
             nit->stateNclock(epoch, state, clock);
-            // std::cout<<"\n\tSV G"<<cursat.prn()<<" C1C: "<<oit->second[0]<<" X:"<< state[0]<<", Y:"<<state[1]<<", Z:"<<state[2]<<" dT:"<<clock;
-            // assign for filter update
-            Obs[index] = oit->second[0];
-            for (int k=0; k<3; k++) {States[index][k]=state[k];} States[index][3]=clock;
-            ++index;
-            std::cerr<<":OK";
+            if (sv_zen_angle(sinf, cosf, sinl, cosl, obsrnx.x_approx(), obsrnx.y_approx(), obsrnx.z_approx(), state) < MAX_ZENITH_ANGLE) {
+              std::cerr<< std::fixed <<"\n##SV G"<<cursat.prn()<<" Obs: "<<oit->second[0]<<" X: "<< state[0]<<" Y: "<<state[1]<<" Z: "<<state[2]<<" C: "<<clock*1e6<<" t: \""<<ngpt::strftime_ymd_hms<milliseconds>(epoch)<<"\"";
+              // assign for filter update
+              Obs[index] = oit->second[0];
+              for (int k=0; k<3; k++) {States[index][k]=state[k];} States[index][3]=clock;
+              ++index;
+              // std::cerr<<":OK";
+            } else {
+              std::cerr<<"\n[DEBUG] Too large zenith angle! observation skipped";
+            }
           } else {
             /*std::cerr<<"\n*** Cannot find valid message for SV "
               <<satsys_to_char(cursat.system())<<cursat.prn()
               <<" Epoch is "<<ngpt::strftime_ymd_hms<milliseconds>(epoch)
               <<" status= "<<j;*/
-            std::cerr<<":NVM";
+            // std::cerr<<":NVM";
+            ;
           }
         } else {
-          std::cerr<<":NaN";
+          // std::cerr<<":NaN";
+          ;
         }
       }
       // compute zenith angle per observation
@@ -312,7 +346,8 @@ int main(int argc, char* argv[])
         //if (epoch_counter>2) return 80;
         filter.print_state();
       } else {
-        std::cerr<<"\n---- No filtering for this epoch!";
+        // std::cerr<<"\n---- No filtering for this epoch!";
+        ;
       }
     } else {
       std::cerr<<"\n[DEBUG] Epoch with too few SVs ("<<satsnum<<") "<<ngpt::strftime_ymd_hms<milliseconds>(epoch);

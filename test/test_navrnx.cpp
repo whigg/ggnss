@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 
   // loop untill next day
   auto stop(start); stop.add_seconds(milliseconds(milliseconds::max_in_day));
-  milliseconds dt(60e0*999);
+  milliseconds dt(60e0*1e3);
 
   double state[3], clock;
   int j,status;
