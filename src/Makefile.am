@@ -33,6 +33,7 @@ dist_include_HEADERS = \
 dist_libgnss_la_SOURCES = \
         nvarstr.cpp \
 	satsys.cpp \
+	satellite.cpp \
         gnssobs.cpp \
         gnssobsrv.cpp \
         bern_utils.cpp \

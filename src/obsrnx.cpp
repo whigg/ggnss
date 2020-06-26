@@ -135,7 +135,6 @@ ObservationRnx::max_obs() const noexcept
 /// @todo Not handling yet:
 ///       SIGNAL STRENGTH UNIT
 ///       INTERVAL
-///       TIME OF FIRST OBS
 ///       TIME OF LAST OBS
 ///       RCV CLOCK OFFS APPL
 ///       SYS / DCBS APPLIED
@@ -217,6 +216,13 @@ ObservationRnx::read_header() noexcept
                    <<"          the real-time-derived receiver clock offset"
                    <<"\n        aka \"RCV CLOCK OFFS APPL\" is ON at RINEX";
         }
+    } else if (!std::strncmp(line+60, "TIME OF FIRST OBS", std::strlen("TIME OF FIRST OBS"))) {
+      try {
+        __epoch_start = ngpt::strptime_ymd_hms<ngpt::microseconds>(line);
+      } catch (std::invalid_argument& e) {
+        std::cerr<<"\n[ERROR] "<<e.what();
+        return 61;
+      }
     }
     dummy_it++;
   }

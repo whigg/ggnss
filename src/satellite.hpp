@@ -27,6 +27,8 @@
 namespace ngpt
 {
 
+namespace detail { constexpr int COSPAR_ID_CHARS=8; }
+
 /// @class Satellite
 /// This class is used to represent a GNSS satellite belonging to any GNSSystem
 /// Different GNSS have/use different identifiers for their constellations, so
@@ -120,6 +122,15 @@ public:
   svn() noexcept
   { return __svn;}
 
+  /// @brief convert to string; depending on compact, either:
+  /// * "SPRN", where S=satellite system char, or
+  /// * "SPRN-SVN/COSPAR
+  std::string
+  to_string(bool compact=true) const noexcept;
+
+  char*
+  cospar() noexcept { return __cospar; }
+
 private:
   SATELLITE_SYSTEM __system;  ///< the satellite system
   int              __prn;     ///< PRN or slot number (GLONASS) or the
@@ -128,6 +139,7 @@ private:
                               ///< GSAT number (Galileo) or SVN number
                               ///< (QZSS); blank (Compass, SBAS)
   SatelliteAntenna __antenna; ///< antenna type
+  char __cospar[detail::COSPAR_ID_CHARS+1]; ///< The COSPAR id, aka "YYYY-XXXA"
 }; // Satellite
 
 } // namespace ngpt

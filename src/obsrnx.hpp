@@ -72,6 +72,10 @@ public:
   double y_approx() const noexcept {return __approx[1];}
   double z_approx() const noexcept {return __approx[2];}
 
+  /// @brief get TIME OF FIRST OBS
+  auto
+  time_of_first_obs() const noexcept {return __epoch_start;}
+
 #ifdef DEBUG
   void
   print_members() const noexcept
@@ -171,6 +175,7 @@ private:
                         ///< Map of Observables per Satellite System; key is 
                         ///< satellite system, value is a vector of observation 
                         ///< descriptors (Type, Band, Attribute)
+  ngpt::datetime<ngpt::microseconds> __epoch_start; ///< time of first obs
   std::map<SATELLITE_SYSTEM, std::vector<ObservationCode>> 
                          __obstmap;
                         ///< A char buffer which can hold an observation line 

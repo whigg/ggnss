@@ -59,7 +59,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  /*
   Satellite sat (ngpt::SATELLITE_SYSTEM::galileo);
   sat.prn() = 12;
   auto dt = ngpt::datetime<seconds>(ngpt::year(2017),
@@ -83,7 +82,20 @@ int main(int argc, char* argv[])
       p.dummy_print(std::cout);
     }
   }
-*/
+  
+  ngpt::Satellite sv;
+  j0 = atx.get_antenna_pco(sat.prn(), sat.system(), dt, pco, &sv);
+  std::cout<<"\nfind_satellite_antenna returned: "<<j0;
+  if (!j0) std::cout<<"\nHere is the SV with full info: "<<sv.to_string(false);
+  
+  j0 = atx.get_satellite_info(sat.prn(), sat.system(), dt, sv);
+  std::cout<<"\nget_satellite_info returned: "<<j0;
+  if (!j0) std::cout<<"\nHere is the SV with full info: "<<sv.to_string(false);
+  
+  j0 = atx.get_satellite_info(sat.prn(), sat.system(), dt, sv);
+  std::cout<<"\nget_satellite_info returned: "<<j0;
+  if (!j0) std::cout<<"\nHere is the SV with full info: "<<sv.to_string(false);
+
   std::cout << "\n";
   return 0;
 }

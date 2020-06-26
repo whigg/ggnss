@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cassert>
 #include "antex.hpp"
+#include "nvarstr.hpp"
 #include "ggdatetime/datetime_read.hpp"
 #ifdef DEBUG
 #include <iostream>
@@ -324,6 +325,8 @@ Antex::find_closest_antenna_match(const ReceiverAntenna& ant_in,
 int
 resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
 {
+  using ngpt::detail::COSPAR_ID_CHARS;
+
   if (std::strlen(line) < 60) return 1;
 
   // first 20 chras are antenna type
@@ -352,15 +355,21 @@ resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
   //        number, GSAT number (Galileo)
   //        or SVN number (QZSS); blank
   //        (Compass, SBAS)
-  if (line[40] != ' ') {
-    if (line[40] != line[20]) {return 10;}
-    if (line[40] != 'S' && line[40] != 'C') {
-      try {
-        sat.svn() = std::stoi(std::string(line+41, 5));
-      } catch (std::exception&) {
-        return 10;
-      }
+  // Note that this field is optional!
+  if (!ngpt::string_is_empty(line+40, 10)) {
+    if (line[40] != line[20]) return 10;
+    try {
+      sat.svn() = std::stoi(std::string(line+41, 5));
+    } catch (std::exception& e) {
+      return 10;
     }
+  }
+
+  // next 10 fields are the COSPAR id; this is optional
+  if (!ngpt::string_is_empty(line+50, 10)) {
+    char* c = sat.cospar();
+    std::memcpy(c, line+50, COSPAR_ID_CHARS);
+    c[COSPAR_ID_CHARS] = '\0';
   }
   
   return 0;
@@ -452,13 +461,69 @@ noexcept
 ///                 "VALID FROM" and "VALID UNTIL")
 /// @param[out] ant_pos  The position of the start of the antenna block in the
 ///                      ANTEX file stream
+/// @param[out] sv  If not NULL, then the Satellite instance will hold all
+///                 info extracted from the antex file, i.e. PRN/SVN, Antenna,
+///                 COSPAR id
 /// @return         Returns an integer; if 0 then the satellite/antenna was
 ///                 found, matched and resolved. Otherwise an integer >0 is
 ///                 returned (and the satellite was not matched)
 int
 Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
                               const ngpt::datetime<ngpt::seconds>& at,
-                              pos_type& ant_pos) noexcept
+                              pos_type& ant_pos, Satellite* sv) noexcept
+{
+  char line[MAX_HEADER_CHARS];
+
+  // go to the top of the file, after the header
+  __istream.seekg(__end_of_head, std::ios_base::beg);
+
+  ReceiverAntenna  cur_ant;
+  Satellite        cur_sat;
+  int              stat1,
+                   stat2;
+
+  while ( !(stat1 = read_next_antenna_type(cur_ant, line)) ) {
+    cur_sat.system() = SATELLITE_SYSTEM::mixed;
+    ant_pos = __istream.tellg();
+    if (!resolve_satellite_antenna_line(line, cur_sat)) {
+      if (cur_sat.prn() == prn && cur_sat.system() == ss) {
+        if (!check_time_interval(__istream, at)) {
+          if (sv!=nullptr) *sv = cur_sat;
+          return 0;
+        }
+      }
+    }
+    if ((stat2 = skip_rest_of_antenna())) break;
+  }
+
+  // some error status is set
+  if (stat1 > 0 || stat2) return 1;
+
+  return 10;
+}
+
+/// @brief Find a satellite antenna by PRN
+/// Find a given satellite in an ANTEX file, for a given epoch. The satellite
+/// is seeked using its PRN id.
+/// @param[in] prn  The PRN of the satellite or to be more precise:
+///                 the PRN number (GPS, Compass),
+///                 the slot number (GLONASS),
+///                 the SVID number (Galileo),
+///                 the 'PRN number minus 192' (QZSS) or
+///                 the 'PRN number minus 100' (SBAS)
+/// @param[in] ss   The satellite system of the satellite
+/// @param[in] at   The epoch we want the satellite for (must match the fields
+///                 "VALID FROM" and "VALID UNTIL")
+/// @param[out] ant_pos  The position of the start of the antenna block in the
+///                      ANTEX file stream
+/// @return         Returns an integer; if 0 then the satellite/antenna was
+///                 found, matched and resolved. Otherwise an integer >0 is
+///                 returned (and the satellite was not matched)
+/*
+int
+Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
+                              const ngpt::datetime<ngpt::seconds>& at,
+                              ngpt::Satellite& sv, pos_type& ant_pos) noexcept
 {
   char line[MAX_HEADER_CHARS];
 
@@ -484,11 +549,34 @@ Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
   }
 
   // some error status is set
-  if (stat1 > 0 || stat2) {
-    return 1;
-  }
+  if (stat1 > 0 || stat2) return 1;
 
   return 10;
+}
+*/
+
+/// Get full satellite information as recorded in the antex file
+/// @param[in] prn  The PRN of the satellite or to be more precise:
+///                 the PRN number (GPS, Compass),
+///                 the slot number (GLONASS),
+///                 the SVID number (Galileo),
+///                 the 'PRN number minus 192' (QZSS) or
+///                 the 'PRN number minus 100' (SBAS)
+/// @param[in] ss   The satellite system of the satellite
+/// @param[in] at   The epoch we want the satellite for (must match the fields
+///                 "VALID FROM" and "VALID UNTIL")
+/// @param[out] sv  Satellite instance with all info collected off from the 
+///                 antex file (aka prn, svn, sNNN, cospar id, antenna)
+/// @return         An integer is returned; 0 denotes success, aka the satellite
+///                 was found and the values collected; anything other than
+///                 0 denotes an error.
+int
+Antex::get_satellite_info(int prn, SATELLITE_SYSTEM ss,
+                       const ngpt::datetime<ngpt::seconds>& at, Satellite& sv)
+noexcept
+{   
+  pos_type ant_pos;
+  return find_satellite_antenna(prn, ss, at, ant_pos, &sv);
 }
 
 /// Get the list of PCO values for a given satellite (antenna). 
@@ -502,13 +590,16 @@ Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
 /// @param[in] at   The epoch we want the satellite for (must match the fields
 ///                 "VALID FROM" and "VALID UNTIL")
 /// @param[out] pco_list  The PCO values for the satellite antenna
+/// @param[out] sv  If not NULL, a Satellite instance with all info collected
+///                 off from the antex file (aka prn, svn, sNNN, cospar id, 
+///                 antenna)
 /// @return         An integer is returned; 0 denotes success, aka the satellite
 ///                 was found and the PCO values collected; anything other than
 ///                 0 denotes an error.
 int
 Antex::get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
                        const ngpt::datetime<ngpt::seconds>& at,
-                       AntennaPcoList& pco_list) noexcept
+                       AntennaPcoList& pco_list, Satellite* sv) noexcept
 {   
   pos_type ant_pos;
 
@@ -516,8 +607,8 @@ Antex::get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
   pco_list.__vecref__().clear();
 
   // match the antenna
-  int ant_found = find_satellite_antenna(prn, ss, at, ant_pos);
-  if (ant_found > 0) {return ant_found;}
+  int ant_found = find_satellite_antenna(prn, ss, at, ant_pos, sv);
+  if (ant_found > 0) return ant_found;
 
   // go to the position where the antenna was found
   __istream.seekg(ant_pos, std::ios_base::beg);

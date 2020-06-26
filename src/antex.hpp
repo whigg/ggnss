@@ -74,7 +74,13 @@ public:
   int
   get_antenna_pco(int prn, SATELLITE_SYSTEM ss, 
                   const ngpt::datetime<ngpt::seconds>& at,
-                  AntennaPcoList& pco_list) noexcept;
+                  AntennaPcoList& pco_list, ngpt::Satellite *sv=nullptr)
+  noexcept;
+  
+  int
+  get_satellite_info(int prn, SATELLITE_SYSTEM ss,
+                     const ngpt::datetime<ngpt::seconds>& at,
+                     ngpt::Satellite& sv) noexcept;
 
 private:
 
@@ -100,7 +106,7 @@ private:
   int
   find_satellite_antenna(int, SATELLITE_SYSTEM,
                          const ngpt::datetime<ngpt::seconds>& at,
-                         pos_type&) noexcept;
+                         pos_type&, ngpt::Satellite *sv=nullptr) noexcept;
 
   std::string            __filename;    ///< The name of the antex file.
   std::ifstream          __istream;     ///< The infput (file) stream.

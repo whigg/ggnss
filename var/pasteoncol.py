@@ -1,4 +1,8 @@
 #! /usr/bin/python
+##
+##  Given two files this function will write out matching lines; matching lines
+##+ are compared using the values at column 'column'
+##
 
 from __future__ import print_function
 import os, sys
@@ -10,19 +14,14 @@ column=0
 def mysplit(line):
   nlst=[]
   lst = line.split()
-  ## print("from {:}".format(lst))
   i=0
   while (i<len(lst)):
-    ## print("{:}".format(i))
     if (lst[i][0]=="\"" or lst[i][0]=="\'") and (lst[i+1][-1]=="\"" or lst[i+1][-1]=="\'"):
       nlst.append(' '.join([lst[i], lst[i+1]]))
-      # print("adding string {:}".format(' '.join([lst[i], lst[i+1]]))
       i+=2
     else:
       nlst.append(lst[i])
-      # print("adding string {:}".format(lst[i]))
       i+=1
-  #print("to {:}".format(nlst))
   return nlst
 
 lines1 = []
@@ -46,16 +45,10 @@ else:
   reflines = lines2
   cmplines = lines1
 
-#print("list1: {:}".format(reflines))
-#sys.exit(9)
-
 for l in reflines:
-  ## print("comparing list {:}".format(l))
   cmpstr=l[column]
-  #print("comparing string {:}".format(cmpstr))
   matching_l=None
   for ln in cmplines:
-    #print("comparing {:} to {:}".format(cmpstr, ln[column]))
     if ln[column]==cmpstr:
       matching_l=ln
       break

@@ -4,6 +4,7 @@
 #include <array>
 #include "obsrnx.hpp"
 #include "navrnx.hpp"
+#include "antex.hpp"
 #include "ggeodesy/geodesy.hpp"
 #include "ggeodesy/car2ell.hpp"
 #include "ggdatetime/datetime_write.hpp"
@@ -226,8 +227,8 @@ get_valid_msg(NavigationRnx& nav, const Satellite& sat,
 
 int main(int argc, char* argv[])
 {
-  if (argc != 3) {
-    std::cerr<<"\n[ERROR] Run as: $>pprnx [Obs. RINEX] [Nav. RINEX]\n";
+  if (argc < 3) {
+    std::cerr<<"\n[ERROR] Run as: $>pprnx [Obs. RINEX] [Nav. RINEX] [ANTEX file (optional)]\n";
     return 1;
   }
 
@@ -238,11 +239,23 @@ int main(int argc, char* argv[])
   // open Nav Rnx
   NavigationRnx navrnx(argv[2]);
   std::vector<NavDataFrame> sat_nav_vec; sat_nav_vec.reserve(50);
-  
+
   // use GPS C1C
   SATELLITE_SYSTEM satsys = SATELLITE_SYSTEM::gps;
   GnssObservable gc1c(satsys, ObservationCode("C1C"), 2.5457277801631593e0);
                  gc1c.add(ngpt::SATELLITE_SYSTEM::gps, ObservationCode("C2W"), -1.5457277801631593e0);
+  
+  // do we have an antex file?
+  std::vector<ngpt::Satellite> sat_info_vec;
+  if (argc>3) {
+    ngpt::datetime<ngpt::seconds> dt (obsrnx.time_of_first_obs().cast_to<ngpt::seconds>());
+    ngpt::Antex atx(argv[3]);
+    ngpt::Satellite s;
+    for (int i=1; i<33; i++) {
+      if (!atx.get_satellite_info(i, satsys, dt, s)) sat_info_vec.emplace_back(s);
+    }
+  }
+  if (sat_info_vec.size()) for (const auto& sv : sat_info_vec) std::cout<<"\n\t"<<sv.to_string(false);
   
   // make map to extract GnssObservables for Obs Rnx
   std::map<SATELLITE_SYSTEM, std::vector<GnssObservable>> map;
