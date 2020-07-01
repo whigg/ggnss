@@ -44,6 +44,16 @@ public:
     v13  ///< Used by EUREF but i can't find the dox
   };
 
+  /// @brief Empty con'tor; does nothing. This should be folled by a call to
+  ///        set_from_file()
+  Antex(){};
+
+  /// @brief Reset the instance to the Antex file given. If the instance is already
+  ///        tied to an ANTEX file, the the function will delete all curent info,
+  ///        delete the input stream and re-open it using the new passed-in file.
+  void
+  reset_to_file(const char*);
+
   /// @brief Constructor from filename.
   explicit
   Antex(const char*);
@@ -81,6 +91,9 @@ public:
   get_satellite_info(int prn, SATELLITE_SYSTEM ss,
                      const ngpt::datetime<ngpt::seconds>& at,
                      ngpt::Satellite& sv) noexcept;
+
+  std::string
+  filename() const noexcept {return std::string(__filename);}
 
 private:
 

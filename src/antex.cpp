@@ -73,6 +73,30 @@ Antex::Antex(const char* filename)
   }
 }
 
+/// @details Move the instance from current instance to a new instance. That is,
+///          delete all records of current instance and close the input stream.
+///          Then, try to construct a new Antex instance tied to the passed in
+///          Antex filename.
+///          This can be of help when e.g. we create an instance via the empty
+///          constructor:
+///          Antex atx;
+///          atx.reset_to_file("some_ante_filename");
+/// @param[in] filename  The filename of the ANTEX file
+void
+Antex::reset_to_file(const char* filename)
+{
+  if (__istream.is_open()) __istream.close();
+  __filename = std::string(filename);
+  __istream.open(filename, std::ios_base::in);
+  __satsys = SATELLITE_SYSTEM::mixed;
+  __version = Antex::ATX_VERSION::v14;
+  __end_of_head=0;
+  if (read_header()) {
+      if (__istream.is_open()) __istream.close();
+      throw std::runtime_error("[ERROR] Failed to read antex header");
+  }
+}
+
 /// @details Read an Antex (instance) header. The format of the header should
 ///          closely follow the antex format specification (version 1.4).
 ///          This function will set the instance fields:
@@ -346,6 +370,8 @@ resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
     } catch (std::exception&) {
       return 5;
     }
+  } else {
+    return 5;
   }
 
   // next 10 fields (aka line[40-50]) are:
@@ -371,7 +397,7 @@ resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
     std::memcpy(c, line+50, COSPAR_ID_CHARS);
     c[COSPAR_ID_CHARS] = '\0';
   }
-  
+
   return 0;
 }
 
@@ -412,7 +438,6 @@ noexcept
                                 to;
   do {
     fin.getline(line, MAX_GRID_CHARS);
-    dummy_it++;
     if (!std::strncmp(line+60, "VALID FROM", 10)) {
       try {
         from = ngpt::strptime_ymd_hms<ngpt::seconds>(line);
@@ -428,9 +453,16 @@ noexcept
         return 12;
       }
     }
-  } while (std::strncmp(line+60, "END OF ANTENNA", 14) && dummy_it < max_lines);
+    if (from_ok && to_ok) break;
+  } while (std::strncmp(line+60, "START OF FREQUENCY", 18) && dummy_it < max_lines);
+  // do not use the following check
+  // } while (std::strncmp(line+60, "END OF ANTENNA", 14) && dummy_it < max_lines);
+  // cause this may leave the stream just after the line "END OF ANTENNA" that
+  // means that calling next the skip_rest_of_antenna function will cause a
+  // whole antenna record block to be skipped. This was indeed a bug (for the
+  // function find_satellite_antenna()
 
-  if (dummy_it >= max_lines) {
+  if (++dummy_it >= max_lines) {
     return 20;
   }
 

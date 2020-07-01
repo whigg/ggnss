@@ -179,6 +179,11 @@ public:
   __underlying_char__() const noexcept
   { return __name; }
 
+  /// @brief get the antenna as std::string
+  std::string
+  to_string() const noexcept
+  {return std::string(__name);}
+
 private:
 
   /// @brief set to no-string (aka '\0')

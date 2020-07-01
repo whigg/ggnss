@@ -1,0 +1,139 @@
+ <!DOCTYPE html>
+<html>
+<head>
+  <title>NtuaNet CheatSheet</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.rawgit.com/afeld/bootstrap-toc/v1.0.1/dist/bootstrap-toc.min.css"/>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <script src="https://cdn.rawgit.com/afeld/bootstrap-toc/v1.0.1/dist/bootstrap-toc.min.js"></script>
+  <style>
+    span.path {
+      font-size: 90%;
+      background-color: #f0f0f0;
+      font-family: courier;
+    }
+    span.cmd {
+      font-size: 100%;
+      background-color: rgb(231, 210, 214);
+      color: rgb(60, 60, 60);
+      font-family: courier;
+      white-space: nowrap;
+    }
+    span.sout {
+      display: block;
+      font-size: 80%;
+      border: 2px solid DodgerBlue;
+      background-color: rgb(255, 255, 255);
+      color: rgb(60, 60, 60);
+      font-family: courier;
+      white-space: pre;
+    }
+    /*
+    table.details, th, td {
+      border: 1px solid black;
+      border-collapse: collapse;
+      padding: 15px;
+    }
+    */
+    table.gps-station-details, td {
+      font-family:"Courier New", Courier, monospace;
+      font-size:80%;
+    }
+    nav[data-toggle="toc"] {
+      top: 42px;
+    }
+    /* small screens */
+    @media (max-width: 768px) {
+    /* override stickyness so that the navigation does not follow scrolling */
+      nav[data-toggle="toc"] {
+      margin-bottom: 42px;
+      position: static;
+    }
+    /* PICK ONE */
+    /* don't expand nested items, which pushes down the rest of the page when navigating */
+      nav[data-toggle="toc"] .nav .active .nav {
+      display: none;
+    }
+    /* alternatively, if you *do* want the second-level navigation to be shown (as seen on this page on mobile), use this */
+    /*
+      nav[data-toggle='toc'] .nav .nav {
+      display: block;
+    }
+    */
+  }
+  </style>
+</head>
+
+<body data-spy="scroll" data-target="#toc">
+  <div class="container">
+    
+    <div class="row">
+      <!-- sidebar, which will move to the top on a small screen -->
+      <div class="col-md-3">
+        <nav id="toc" data-toggle="toc"></nav>
+       </div>
+
+      <!-- main content area -->
+      <div class="col-md-9">
+        <h1>What is this document about?</h1>
+        <p>This s a description or cheatsheet, for handling communication and 
+    handling of the majority of the Ntua/Oxford GPS stations. It is relevant to
+    all stations of type <em>TRIMBLE 5700</em> connected a <em>MOXA NPort 5210A</em> 
+    device server and possibly a ntwork provider of some kind (mostly that is 
+    a <em>SIERRA WIRELESS AirLink LS300</em> device).</p>
+
+        <h1>GNSS Orbits</h1>
+        <p>In NtuaPpp we only read satellite orbits off from RINEX v3.x navigation files. Satellite orbits are read for the following satellite systems:
+        <ul> <li>Gps aka 'G'</li>
+          <li>Glonass aka 'R'</li>
+          <li>Galileo aka 'E'</li>
+          <li>BeiDou aka 'C'</li></ul>
+        </p>
+
+        <h2>GPS Navigation Orbits</h2>
+        <p> Here is a comparisson of satellite clock corrections extravted from Sp3 files vs the ones we compute using the navigation file.
+        <em>The comparisson is performed for 2019-12-01</em>
+        <img src="pics/g01.png" class="rounded float-left" alt="sv g01 plot">
+        <img src="pics/g02.png" class="rounded float-left" alt="sv g02 plot">
+        <img src="pics/g03.png" class="rounded float-left" alt="sv g03 plot">
+        <img src="pics/g04.png" class="rounded float-left" alt="sv g04 plot">
+        <img src="pics/g05.png" class="rounded float-left" alt="sv g05 plot">
+        <img src="pics/g06.png" class="rounded float-left" alt="sv g06 plot">
+        <img src="pics/g07.png" class="rounded float-left" alt="sv g07 plot">
+        <img src="pics/g08.png" class="rounded float-left" alt="sv g08 plot">
+        <img src="pics/g09.png" class="rounded float-left" alt="sv g09 plot">
+        <img src="pics/g10.png" class="rounded float-left" alt="sv g10 plot">
+        <img src="pics/g11.png" class="rounded float-left" alt="sv g11 plot">
+        <img src="pics/g12.png" class="rounded float-left" alt="sv g12 plot">
+        <img src="pics/g13.png" class="rounded float-left" alt="sv g13 plot">
+        <img src="pics/g14.png" class="rounded float-left" alt="sv g14 plot">
+        <img src="pics/g15.png" class="rounded float-left" alt="sv g15 plot">
+        <img src="pics/g16.png" class="rounded float-left" alt="sv g16 plot">
+        <img src="pics/g17.png" class="rounded float-left" alt="sv g17 plot">
+        <img src="pics/g18.png" class="rounded float-left" alt="sv g18 plot">
+        <img src="pics/g19.png" class="rounded float-left" alt="sv g19 plot">
+        <img src="pics/g20.png" class="rounded float-left" alt="sv g20 plot">
+        <img src="pics/g21.png" class="rounded float-left" alt="sv g21 plot">
+        <img src="pics/g22.png" class="rounded float-left" alt="sv g22 plot">
+        <img src="pics/g23.png" class="rounded float-left" alt="sv g23 plot">
+        <img src="pics/g24.png" class="rounded float-left" alt="sv g24 plot">
+        <img src="pics/g25.png" class="rounded float-left" alt="sv g25 plot">
+        <img src="pics/g26.png" class="rounded float-left" alt="sv g26 plot">
+        <img src="pics/g27.png" class="rounded float-left" alt="sv g27 plot">
+        <img src="pics/g28.png" class="rounded float-left" alt="sv g28 plot">
+        <img src="pics/g29.png" class="rounded float-left" alt="sv g29 plot">
+        <img src="pics/g30.png" class="rounded float-left" alt="sv g30 plot">
+        <img src="pics/g31.png" class="rounded float-left" alt="sv g31 plot">
+        <img src="pics/g32.png" class="rounded float-left" alt="sv g32 plot">
+        </p>
+      
+      </div><!-- main content area -->
+    </div><!-- row -->
+  </div><!-- initial container -->
+
+</body>
+</html> 

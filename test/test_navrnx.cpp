@@ -1,5 +1,6 @@
 #include <iostream>
 #include "navrnx.hpp"
+#include "antex.hpp"
 #include "ggdatetime/datetime_write.hpp"
 
 using ngpt::NavigationRnx;
@@ -60,8 +61,8 @@ msg_is_ok(NavDataFrame& msg, datetime<milliseconds>& t)
 
 int main(int argc, char* argv[])
 {
-  if (argc != 3) {
-    std::cerr<<"\n[ERROR] Run as: $>testNavRnx [Nav. RINEX] [SV e.g. G01]\n";
+  if (argc < 3) {
+    std::cerr<<"\n[ERROR] Run as: $>testNavRnx [Nav. RINEX] [SV e.g. G01] [optional: antex]\n";
     return 1;
   }
 
@@ -78,6 +79,10 @@ int main(int argc, char* argv[])
   char* end;
   prn = std::strtol(argv[2]+1, &end, 10);
 
+  // if we have an antex file, initialize it
+  ngpt::Antex atx;
+  if (argc>3) atx.reset_to_file(argv[3]);
+
   // construct the navigation rinex instance
   NavigationRnx nav(argv[1]);
 
@@ -88,6 +93,13 @@ int main(int argc, char* argv[])
 
   // start epoch (same as epoch of first block)
   datetime<milliseconds> start = msg.toc<milliseconds>();
+  ngpt::Satellite sv;
+  if (atx.get_satellite_info(prn, sys, start.cast_to<ngpt::seconds>(), sv)) {
+    std::cerr<<"\n[ERROR] Failed to extract satellite info from antex file";
+    std::cerr<<"\n        SV: "<<prn<<", antex: "<<atx.filename();
+    return 5;
+  }
+  std::cout<<"\n## SV: "<<sv.to_string(false)<<","<<sv.antenna().to_string();
 
   // loop untill next day
   auto stop(start); stop.add_seconds(milliseconds(milliseconds::max_in_day));
@@ -122,7 +134,7 @@ int main(int argc, char* argv[])
     } else {
       if (msg.stateNclock(start, state, clock)) return 200;
       std::cout<<"\n\""<<ngpt::strftime_ymd_hms<milliseconds>(start)<<"\" ";
-      std::printf("%+15.6f%+15.6f%+15.6f %15.10f", state[0]*1e-3, state[1]*1e-3, state[2]*1e-3, clock*1e6);
+      std::printf("%20.6f%+15.6f%+15.6f%+15.6f %15.10f", start.sec().to_fractional_seconds(), state[0]*1e-3, state[1]*1e-3, state[2]*1e-3, clock*1e6);
       start.add_seconds(dt);
     }
   }
