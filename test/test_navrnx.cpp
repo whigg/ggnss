@@ -1,5 +1,6 @@
 #include <iostream>
 #include "navrnx.hpp"
+#include "antex.hpp"
 #include "ggdatetime/datetime_write.hpp"
 
 using ngpt::NavigationRnx;
@@ -60,8 +61,8 @@ msg_is_ok(NavDataFrame& msg, datetime<milliseconds>& t)
 
 int main(int argc, char* argv[])
 {
-  if (argc != 3) {
-    std::cerr<<"\n[ERROR] Run as: $>testNavRnx [Nav. RINEX] [SV e.g. G01]\n";
+  if (argc < 3) {
+    std::cerr<<"\n[ERROR] Run as: $>testNavRnx [Nav. RINEX] [SV e.g. G01] [optional ANTEX file]\n";
     return 1;
   }
 
@@ -88,6 +89,18 @@ int main(int argc, char* argv[])
 
   // start epoch (same as epoch of first block)
   datetime<milliseconds> start = msg.toc<milliseconds>();
+  
+  // do we have an antex file?
+  if (argc>3) {
+    ngpt::datetime<ngpt::seconds> dt (start.cast_to<ngpt::seconds>());
+    ngpt::Antex atx(argv[3]);
+    ngpt::Satellite s;
+    if (!atx.get_satellite_info(prn, sys, dt, s)) {
+      std::cout<<"## SV information: "<<s.to_string(false);
+    } else {
+      std::cerr<<"[ERROR] Failed to find SV in antex file!!";
+    }
+  }
 
   // loop untill next day
   auto stop(start); stop.add_seconds(milliseconds(milliseconds::max_in_day));
