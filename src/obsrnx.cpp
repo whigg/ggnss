@@ -125,7 +125,7 @@ ObservationRnx::max_obs() const noexcept
   std::size_t sz, max=0;
   // in gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, this complains about 
   // unused variable ‘key’ [-Werror=unused-variable]
-#if __GNUC__ < 8
+#if __GNUC__ >= 8
   for (auto const& [key, val] : __obstmap) if ((sz=val.size())>max) max=sz;
 #else
   for (auto it=__obstmap.cbegin(); it!=__obstmap.cend(); it++) {
