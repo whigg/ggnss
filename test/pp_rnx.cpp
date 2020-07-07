@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
   std::vector<NavDataFrame> sat_nav_vec; sat_nav_vec.reserve(50);
 
   // use GPS C1C
-  SATELLITE_SYSTEM satsys = SATELLITE_SYSTEM::gps;
+  SATELLITE_SYSTEM satsys = SATELLITE_SYSTEM::glonass;
   GnssObservable gc1c(satsys, ObservationCode("C1C"), 2.5457277801631593e0);
                  gc1c.add(ngpt::SATELLITE_SYSTEM::gps, ObservationCode("C2W"), -1.5457277801631593e0);
   
