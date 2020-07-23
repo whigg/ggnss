@@ -195,7 +195,7 @@ template <> struct satellite_system_traits<SATELLITE_SYSTEM::beidou> {
   /// Constant F for SV Clock Correction in seconds/sqrt(meters)
   /// Note that std::sqrt is not constexpr (but it is for gcc)
   static
-#if defined(__GNUC__)
+#ifndef __clang__
       constexpr
 #endif
       double

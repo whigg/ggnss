@@ -1,6 +1,8 @@
 #ifndef __GNSS_ANTENNA_HPP__
 #define __GNSS_ANTENNA_HPP__
 
+#include <cstddef>
+
 /// @file     antenna.hpp
 ///
 /// @version  0.10
