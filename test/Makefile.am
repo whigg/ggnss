@@ -20,7 +20,6 @@ MCXXFLAGS = \
 	-pg \
 	-Wall \
 	-Wextra \
-	-Werror \
 	-pedantic \
 	-W \
 	-Wshadow \
