@@ -3,6 +3,7 @@
 
 #include "ggdatetime/dtcalendar.hpp"
 #include "satsys.hpp"
+#include <iostream>
 #include <fstream>
 #ifdef DEBUG
 #include "ggdatetime/datetime_write.hpp"
