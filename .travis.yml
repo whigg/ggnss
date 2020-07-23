@@ -24,6 +24,7 @@ before_script:
 
 script:
  - echo "> Compiling ggnss [main]"
+ - pwd
  - mv src/Makefile.am.production src/Makefile.am
  - autoreconf -if
  - ./configure
