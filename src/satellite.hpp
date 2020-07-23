@@ -8,11 +8,11 @@
 /// @author   xanthos@mail.ntua.gr
 ///           danast@mail.ntua.gr
 ///
-/// @date     Mon 11 Feb 2019 01:08:33 PM EET 
+/// @date     Mon 11 Feb 2019 01:08:33 PM EET
 ///
 /// @brief    Definitions of a GNSS Satellite
-/// 
-/// @see      
+///
+/// @see
 ///
 /// @copyright Copyright © 2019 Dionysos Satellite Observatory,
 ///        National Technical University of Athens.
@@ -21,13 +21,14 @@
 ///        Version 2, as published by Sam Hocevar. See http://www.wtfpl.net/
 ///        for more details.
 
-#include "satsys.hpp"
 #include "antenna.hpp"
+#include "satsys.hpp"
 
-namespace ngpt
-{
+namespace ngpt {
 
-namespace detail { constexpr int COSPAR_ID_CHARS=8; }
+namespace detail {
+constexpr int COSPAR_ID_CHARS = 8;
+}
 
 /// @class Satellite
 /// This class is used to represent a GNSS satellite belonging to any GNSSystem
@@ -45,102 +46,75 @@ namespace detail { constexpr int COSPAR_ID_CHARS=8; }
 /// BeiDou    | PRN         | blank          |
 /// SBAS      | PRN         | blank          |
 /// ----------+-------------+----------------+
-class Satellite
-{
+class Satellite {
 public:
+  /// @brief Default constructor
+  explicit Satellite(SATELLITE_SYSTEM s = SATELLITE_SYSTEM::mixed) noexcept
+      : __system(s), __prn(-1), __svn(-1), __antenna(){};
 
   /// @brief Default constructor
-  explicit
-  Satellite(SATELLITE_SYSTEM s=SATELLITE_SYSTEM::mixed) noexcept
-    : __system(s)
-    , __prn(-1)
-    , __svn(-1)
-    , __antenna()
-    {};
-  
-  /// @brief Default constructor
   Satellite(SATELLITE_SYSTEM s, int PRN) noexcept
-    : __system(s)
-    , __prn(PRN)
-    , __svn(-1)
-    , __antenna()
-    {};
+      : __system(s), __prn(PRN), __svn(-1), __antenna(){};
 
   /// @brief   Get the antenna type (non-const)
   /// @return  The satellite's antenna model as SatelliteAntenna
-  SatelliteAntenna&
-  antenna() noexcept
-  {return __antenna;}
+  SatelliteAntenna &antenna() noexcept { return __antenna; }
 
   /// @brief   Get the antenna type (const)
   /// @return  The satellite's antenna model as SatelliteAntenna
-  SatelliteAntenna
-  antenna() const noexcept
-  {return __antenna;}
+  SatelliteAntenna antenna() const noexcept { return __antenna; }
 
   /// @brief  Get the satellite system (non-const)
   /// @return The satellite's satellite system as SATELLITE_SYSTEM
-  SATELLITE_SYSTEM&
-  system() noexcept
-  {return __system;}
+  SATELLITE_SYSTEM &system() noexcept { return __system; }
 
   /// @brief  Get the satellite system (const)
   /// @return The satellite's satellite system as SATELLITE_SYSTEM
   SATELLITE_SYSTEM
-  system() const noexcept
-  {return __system;}
+  system() const noexcept { return __system; }
 
   /// @brief  Get the PRN number of the satellite (const)
   /// @return The satellite's PRN number
   /// @note PRN can mean different things per satellite system; see the
   ///       table at the class documentation
-  int
-  prn() const noexcept
-  { return __prn;}
+  int prn() const noexcept { return __prn; }
 
   /// @brief  Get the PRN number of the satellite (non-const)
   /// @return The satellite's PRN number
   /// @note PRN can mean different things per satellite system; see the
   ///       table at the class documentation
-  int&
-  prn() noexcept
-  { return __prn;}
+  int &prn() noexcept { return __prn; }
 
   /// @brief  Get the satellite's SVN number (const)
   /// @return The satellite's SVN number
   /// @note SVN can mean different things per satellite system; see the
   ///       table at the class documentation
-  int
-  svn() const noexcept
-  { return __svn;}
+  int svn() const noexcept { return __svn; }
 
   /// @brief  Get the satellite's SVN number (non-const)
   /// @return The satellite's SVN number
   /// @note SVN can mean different things per satellite system; see the
   ///       table at the class documentation
-  int&
-  svn() noexcept
-  { return __svn;}
+  int &svn() noexcept { return __svn; }
 
   /// @brief convert to string; depending on compact, either:
   /// * "SPRN", where S=satellite system char, or
   /// * "SPRN-SVN/COSPAR
-  std::string
-  to_string(bool compact=true) const noexcept;
+  std::string to_string(bool compact = true) const noexcept;
 
-  char*
-  cospar() noexcept { return __cospar; }
+  char *cospar() noexcept { return __cospar; }
 
 private:
   SATELLITE_SYSTEM __system;  ///< the satellite system
-  int              __prn;     ///< PRN or slot number (GLONASS) or the
+  int __prn;                  ///< PRN or slot number (GLONASS) or the
                               ///< SVID number (Galileo),
-  int              __svn;     ///< SVN number (GPS), GLONASS number,
+  int __svn;                  ///< SVN number (GPS), GLONASS number,
                               ///< GSAT number (Galileo) or SVN number
                               ///< (QZSS); blank (Compass, SBAS)
   SatelliteAntenna __antenna; ///< antenna type
-  char __cospar[detail::COSPAR_ID_CHARS+1]; ///< The COSPAR id, aka "YYYY-XXXA"
-}; // Satellite
+  char
+      __cospar[detail::COSPAR_ID_CHARS + 1]; ///< The COSPAR id, aka "YYYY-XXXA"
+};                                           // Satellite
 
 } // namespace ngpt
 

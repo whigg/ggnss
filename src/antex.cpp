@@ -1,33 +1,33 @@
-#include <stdexcept>
-#include <cstring>
-#include <cassert>
 #include "antex.hpp"
-#include "nvarstr.hpp"
 #include "ggdatetime/datetime_read.hpp"
+#include "nvarstr.hpp"
+#include <cassert>
+#include <cstring>
+#include <stdexcept>
 #ifdef DEBUG
 #include <iostream>
 #endif
 
 using ngpt::Antex;
 using ngpt::ReceiverAntenna;
+using ngpt::Satellite;
 using ngpt::SatelliteAntenna;
-using ngpt::Satellite; 
 
 /// No header line can have more than 80 chars. However, there are cases when
 /// they  exceed this limit, just a bit ...
-constexpr int MAX_HEADER_CHARS { 85 };
+constexpr int MAX_HEADER_CHARS{85};
 
 /// Max header lines.
-constexpr int MAX_HEADER_LINES { 1000 };
+constexpr int MAX_HEADER_LINES{1000};
 
 /// Size of 'END OF HEADER' C-string.
 /// std::strlen is not 'constexr' so eoh_size can't be one either. Note however
 /// that gcc has a builtin constexpr strlen function (if we want to disable this
 /// we can do so with -fno-builtin).
 #ifdef __clang__
-    const     std::size_t eoh_size { std::strlen("END OF HEADER") };
+const std::size_t eoh_size{std::strlen("END OF HEADER")};
 #else
-    constexpr std::size_t eoh_size { std::strlen("END OF HEADER") };
+constexpr std::size_t eoh_size{std::strlen("END OF HEADER")};
 #endif
 
 /// Max grid line chars; i.e. the maximum number of chars any pcv line can
@@ -43,16 +43,13 @@ constexpr int MAX_HEADER_LINES { 1000 };
 ///
 /// @warning When using this constant always assert something like
 ///          8*(std::size_t)((zen2-zen1)/dzen) < MAX_GRID_CHARS-10
-constexpr std::size_t MAX_GRID_CHARS { 512 };
+constexpr std::size_t MAX_GRID_CHARS{512};
 
 // Forward declerationof non Antex:: functions;
-int
-collect_pco(std::ifstream&, ngpt::AntennaPcoList&) noexcept;
-int
-resolve_satellite_antenna_line(const char*, Satellite&) noexcept;
-int
-check_time_interval(std::ifstream&, const ngpt::datetime<ngpt::seconds>&)
-  noexcept;
+int collect_pco(std::ifstream &, ngpt::AntennaPcoList &) noexcept;
+int resolve_satellite_antenna_line(const char *, Satellite &) noexcept;
+int check_time_interval(std::ifstream &,
+                        const ngpt::datetime<ngpt::seconds> &) noexcept;
 
 /// @details Antex Constructor, using an antex filename. The constructor will
 ///          initialize (set) the _filename attribute and also (try to)
@@ -60,16 +57,14 @@ check_time_interval(std::ifstream&, const ngpt::datetime<ngpt::seconds>&)
 ///          If the file is successefuly opened, the constructor will read
 ///          the ANTEX header and assign info.
 /// @param[in] filename  The filename of the ANTEX file
-Antex::Antex(const char* filename)
-  : __filename   (filename)
-  , __istream    (filename, std::ios_base::in)
-  , __satsys     (SATELLITE_SYSTEM::mixed)
-  , __version    (Antex::ATX_VERSION::v14)
-  , __end_of_head(0)
-{
+Antex::Antex(const char *filename)
+    : __filename(filename), __istream(filename, std::ios_base::in),
+      __satsys(SATELLITE_SYSTEM::mixed), __version(Antex::ATX_VERSION::v14),
+      __end_of_head(0) {
   if (read_header()) {
-      if (__istream.is_open()) __istream.close();
-      throw std::runtime_error("[ERROR] Failed to read antex header");
+    if (__istream.is_open())
+      __istream.close();
+    throw std::runtime_error("[ERROR] Failed to read antex header");
   }
 }
 
@@ -82,18 +77,18 @@ Antex::Antex(const char* filename)
 ///          Antex atx;
 ///          atx.reset_to_file("some_ante_filename");
 /// @param[in] filename  The filename of the ANTEX file
-void
-Antex::reset_to_file(const char* filename)
-{
-  if (__istream.is_open()) __istream.close();
+void Antex::reset_to_file(const char *filename) {
+  if (__istream.is_open())
+    __istream.close();
   __filename = std::string(filename);
   __istream.open(filename, std::ios_base::in);
   __satsys = SATELLITE_SYSTEM::mixed;
   __version = Antex::ATX_VERSION::v14;
-  __end_of_head=0;
+  __end_of_head = 0;
   if (read_header()) {
-      if (__istream.is_open()) __istream.close();
-      throw std::runtime_error("[ERROR] Failed to read antex header");
+    if (__istream.is_open())
+      __istream.close();
+    throw std::runtime_error("[ERROR] Failed to read antex header");
   }
 }
 
@@ -107,8 +102,8 @@ Antex::reset_to_file(const char* filename)
 ///          The function will exit after reading a header line, ending with
 ///          the (sub)string 'END OF HEADER'.
 ///
-/// @warning 
-///          - The instance's input steam (i.e. _istream) should be open and 
+/// @warning
+///          - The instance's input steam (i.e. _istream) should be open and
 ///          valid.
 ///          - Note that the function expects that no header line contains more
 ///          than MAX_HEADER_CHARS chars.
@@ -116,13 +111,12 @@ Antex::reset_to_file(const char* filename)
 /// @return  Anything other than 0 is an error.
 ///
 /// @see https://github.com/xanthospap/ngpt/blob/dev/src/antex.cpp
-int
-Antex::read_header() noexcept
-{
+int Antex::read_header() noexcept {
   char line[MAX_HEADER_CHARS];
 
   // The stream should be open by now!
-  if (!__istream.is_open()) return 1;
+  if (!__istream.is_open())
+    return 1;
 
   // Go to the top of the file.
   __istream.seekg(0);
@@ -133,7 +127,7 @@ Antex::read_header() noexcept
   // strtod will keep on reading untill a non-valid
   // char is read. Fuck this, lets split the string
   // so that it only reads the valid chars (for version).
-  *(line+15) = '\0';
+  *(line + 15) = '\0';
   float fvers = std::strtod(line, nullptr);
   if (std::abs(fvers - 1.4) < .001) {
     __version = Antex::ATX_VERSION::v14;
@@ -145,7 +139,7 @@ Antex::read_header() noexcept
   // Resolve the satellite system.
   try {
     __satsys = ngpt::char_to_satsys(line[20]);
-  } catch (std::runtime_error& e) {
+  } catch (std::runtime_error &e) {
     return 11;
   }
 
@@ -161,8 +155,8 @@ Antex::read_header() noexcept
   // ----------------------------------------------------
   int dummy_it = 0;
   __istream.getline(line, MAX_HEADER_CHARS);
-  while (dummy_it < MAX_HEADER_LINES 
-         && std::strncmp(line+60, "END OF HEADER", eoh_size) ) {
+  while (dummy_it < MAX_HEADER_LINES &&
+         std::strncmp(line + 60, "END OF HEADER", eoh_size)) {
     __istream.getline(line, MAX_HEADER_CHARS);
     dummy_it++;
   }
@@ -202,18 +196,17 @@ Antex::read_header() noexcept
 ///
 /// @return Anything other than 0, denotes an abnormal exit; An int < 0 denotes
 ///         EOF, while any integer > 0 denotes an error.
-int
-Antex::read_next_antenna_type(ReceiverAntenna& antenna, char* c) noexcept
-{
+int Antex::read_next_antenna_type(ReceiverAntenna &antenna, char *c) noexcept {
   char line[MAX_HEADER_CHARS];
 
   // The stream should be open by now!
-  if (!__istream.is_open()) return 1;
+  if (!__istream.is_open())
+    return 1;
 
   // Read the first line. Should be "START OF ANTENNA"
   // ----------------------------------------------------
   if (!__istream.getline(line, MAX_HEADER_CHARS) ||
-      std::strncmp(line+60, "START OF ANTENNA", 16)) {
+      std::strncmp(line + 60, "START OF ANTENNA", 16)) {
     if (__istream.eof()) {
       __istream.clear();
       return -1;
@@ -224,46 +217,45 @@ Antex::read_next_antenna_type(ReceiverAntenna& antenna, char* c) noexcept
   // Read the next line. Should be "TYPE / SERIAL NO"
   // ----------------------------------------------------
   if (!__istream.getline(line, MAX_HEADER_CHARS) ||
-          std::strncmp(line+60, "TYPE / SERIAL NO", 16)) {
+      std::strncmp(line + 60, "TYPE / SERIAL NO", 16)) {
     return 11;
   }
   // assign the antenna (model+radome)
   antenna = ReceiverAntenna(line);
   // if serial is not empty, assign serial
   for (int i = 20; i < 40; i++) {
-    if ( *(line+i) != ' ' ) {
-      antenna.set_serial_nr(line+20);
+    if (*(line + i) != ' ') {
+      antenna.set_serial_nr(line + 20);
       break;
     }
   }
-    
+
   // Copy the line if needed
-  if (c) std::memcpy(c, line, sizeof(char)*60);
+  if (c)
+    std::memcpy(c, line, sizeof(char) * 60);
 
   // all done; return
   return 0;
 }
 
 /// Skip the rest of the antenna information and go to next one.
-/// 
+///
 /// It is expected that the antex input stream is left at any position within
 /// an antenna information block (i.e. at the begining of any line between the
-/// fields "START OF ANTENNA" and "END OF ANTENNA". The function will then 
-/// continue reading the rest of the fields/lines untill "END OF ANTENNA" is 
+/// fields "START OF ANTENNA" and "END OF ANTENNA". The function will then
+/// continue reading the rest of the fields/lines untill "END OF ANTENNA" is
 /// read and imidiately exit.
 /// @return Anything other than 0 denotes an error.
-int
-Antex::skip_rest_of_antenna() noexcept
-{
+int Antex::skip_rest_of_antenna() noexcept {
   char line[MAX_GRID_CHARS];
-  int  max_antenna_lines = 5000;
+  int max_antenna_lines = 5000;
 
   int dummy_it = 0;
   do {
     __istream.getline(line, MAX_GRID_CHARS);
     dummy_it++;
-  } while (std::strncmp(line+60, "END OF ANTENNA", 14)
-           && dummy_it < max_antenna_lines);
+  } while (std::strncmp(line + 60, "END OF ANTENNA", 14) &&
+           dummy_it < max_antenna_lines);
 
   if (dummy_it >= max_antenna_lines) {
     return 1;
@@ -272,11 +264,11 @@ Antex::skip_rest_of_antenna() noexcept
   return 0;
 }
 
-/// Try to match a given ReceiverAntenna to a record in the antex file. The 
-/// funtion will try to match at least the model+radome and if possible also 
+/// Try to match a given ReceiverAntenna to a record in the antex file. The
+/// funtion will try to match at least the model+radome and if possible also
 /// match the serial.
 /// If the function does find a match (and returns <1), then it will leave the
-/// stream at the field (aka next line to be read will be) 
+/// stream at the field (aka next line to be read will be)
 /// "METH / BY / # / DATE".
 /// @param[in]  ant_in   ReceiverAntenna to match in antex
 /// @param[out] ant_out  If return value <= 0, then matched antenna as recorded
@@ -286,31 +278,28 @@ Antex::skip_rest_of_antenna() noexcept
 /// @return              -1 exact match (model+radome+serial)
 ///                       0 match model+radome
 ///                      >0 no match or error
-int
-Antex::find_closest_antenna_match(const ReceiverAntenna& ant_in,
-                                  ReceiverAntenna& ant_out,
-                                  pos_type& ant_pos) noexcept
-{
+int Antex::find_closest_antenna_match(const ReceiverAntenna &ant_in,
+                                      ReceiverAntenna &ant_out,
+                                      pos_type &ant_pos) noexcept {
   // go to the top of the file, after the header
   __istream.seekg(__end_of_head, std::ios_base::beg);
 
-  ReceiverAntenna  cur_ant,
-                   best_match_ant;
+  ReceiverAntenna cur_ant, best_match_ant;
   pos_type best_match_pos;
-  int      stat1,
-           stat2;
+  int stat1, stat2;
 
   while (!(stat1 = read_next_antenna_type(cur_ant))) {
-    if ( cur_ant.is_same(ant_in) ) {
+    if (cur_ant.is_same(ant_in)) {
       ant_out = cur_ant;
       ant_pos = __istream.tellg();
       return -1;
     }
-    if ( cur_ant.compare_model(ant_in) && !cur_ant.has_serial() ) {
+    if (cur_ant.compare_model(ant_in) && !cur_ant.has_serial()) {
       best_match_ant = cur_ant;
       best_match_pos = __istream.tellg();
     }
-    if ((stat2 = skip_rest_of_antenna())) break;
+    if ((stat2 = skip_rest_of_antenna()))
+      break;
   }
   // some error status is set
   if (stat1 > 0 || stat2) {
@@ -336,22 +325,21 @@ Antex::find_closest_antenna_match(const ReceiverAntenna& ant_in,
 ///   the 'PRN number minus 192' (QZSS) or
 ///   the 'PRN number minus 100' (SBAS)
 /// * Satellite code "sNNN" (optional), where NNN is
-///   SVN number (GPS), 
+///   SVN number (GPS),
 ///   GLONASS number
 ///   GSAT number (Galileo)
-///   or SVN number (QZSS) 
+///   or SVN number (QZSS)
 ///   blank (Compass, SBAS)
 ///  The function will fail (returning true), when the line cannot be resolved
 ///  to a satellite antenna
 ///  @param[in] line  A satellite antenna line ("TYPE / SERIAL NO") as recorded
 ///                   in an antex line
 ///  @param[out] sat  The resolved satellite, possibly not containing SVN
-int
-resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
-{
+int resolve_satellite_antenna_line(const char *line, Satellite &sat) noexcept {
   using ngpt::detail::COSPAR_ID_CHARS;
 
-  if (std::strlen(line) < 60) return 1;
+  if (std::strlen(line) < 60)
+    return 1;
 
   // first 20 chras are antenna type
   sat.antenna().set_from_cstr(line);
@@ -360,14 +348,14 @@ resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
   // Satellite code "sNN" (blank: all representatives of the specified
   // antenna type)
   // For the selection of single satellites the satellite system flag ('G','R',
-  // 'E','C','J','S') together with the PRN number (GPS, Compass), the slot 
-  // number (GLONASS), the SVID number (Galileo), the 'PRN number minus 192' 
+  // 'E','C','J','S') together with the PRN number (GPS, Compass), the slot
+  // number (GLONASS), the SVID number (Galileo), the 'PRN number minus 192'
   // (QZSS) or the 'PRN number minus 100' (SBAS) has to be specified.
   if (line[20] != ' ') {
     try {
       sat.system() = ngpt::char_to_satsys(line[20]);
-      sat.prn()    = std::stoi(std::string(line+21, 5));
-    } catch (std::exception&) {
+      sat.prn() = std::stoi(std::string(line + 21, 5));
+    } catch (std::exception &) {
       return 5;
     }
   } else {
@@ -382,19 +370,20 @@ resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
   //        or SVN number (QZSS); blank
   //        (Compass, SBAS)
   // Note that this field is optional!
-  if (!ngpt::string_is_empty(line+40, 10)) {
-    if (line[40] != line[20]) return 10;
+  if (!ngpt::string_is_empty(line + 40, 10)) {
+    if (line[40] != line[20])
+      return 10;
     try {
-      sat.svn() = std::stoi(std::string(line+41, 5));
-    } catch (std::exception& e) {
+      sat.svn() = std::stoi(std::string(line + 41, 5));
+    } catch (std::exception &e) {
       return 10;
     }
   }
 
   // next 10 fields are the COSPAR id; this is optional
-  if (!ngpt::string_is_empty(line+50, 10)) {
-    char* c = sat.cospar();
-    std::memcpy(c, line+50, COSPAR_ID_CHARS);
+  if (!ngpt::string_is_empty(line + 50, 10)) {
+    char *c = sat.cospar();
+    std::memcpy(c, line + 50, COSPAR_ID_CHARS);
     c[COSPAR_ID_CHARS] = '\0';
   }
 
@@ -412,55 +401,53 @@ resolve_satellite_antenna_line(const char* line, Satellite& sat) noexcept
 /// @param[in] fin  An antex input stream placed at the begining of the line:
 ///                 "METH / BY / # / DATE"
 /// @param[in] at   An ngpt::datetime<ngpt::seconds> epoch; the fuction will
-///                 check if this epoch is contained in ["VALID FROM", 
+///                 check if this epoch is contained in ["VALID FROM",
 ///                 VALID UNITL"]. Dates in ANTEX files have a resolution of
 ///                 seconds.
 /// @return         If the passed in epoch is between the VALID FROM/UNTILL
 ///                 bounds, 0 is returned. Else, an error code (integer>0)
 ///                 is returned.
-int
-check_time_interval(std::ifstream& fin, const ngpt::datetime<ngpt::seconds>& at)
-noexcept
-{
+int check_time_interval(std::ifstream &fin,
+                        const ngpt::datetime<ngpt::seconds> &at) noexcept {
   char line[MAX_GRID_CHARS];
-  int  max_lines = 5000;
+  int max_lines = 5000;
 
   // next field is 'METH / BY / # / DATE'
-  if (!fin.getline(line, MAX_GRID_CHARS)
-      || std::strncmp(line+60, "METH / BY / # / DATE", 20)) {
+  if (!fin.getline(line, MAX_GRID_CHARS) ||
+      std::strncmp(line + 60, "METH / BY / # / DATE", 20)) {
     return 10;
   }
 
-  int  dummy_it = 0;
-  bool from_ok  = false,
-       to_ok    = false;
-  ngpt::datetime<ngpt::seconds> from,
-                                to;
+  int dummy_it = 0;
+  bool from_ok = false, to_ok = false;
+  ngpt::datetime<ngpt::seconds> from, to;
   do {
     fin.getline(line, MAX_GRID_CHARS);
-    if (!std::strncmp(line+60, "VALID FROM", 10)) {
+    if (!std::strncmp(line + 60, "VALID FROM", 10)) {
       try {
         from = ngpt::strptime_ymd_hms<ngpt::seconds>(line);
         from_ok = true;
-      } catch (std::exception&) {
+      } catch (std::exception &) {
         return 11;
       }
-    } else if (!std::strncmp(line+60, "VALID UNTIL", 11)) {
+    } else if (!std::strncmp(line + 60, "VALID UNTIL", 11)) {
       try {
         to = ngpt::strptime_ymd_hms<ngpt::seconds>(line);
         to_ok = true;
-      } catch (std::exception&) {
+      } catch (std::exception &) {
         return 12;
       }
     }
-    if (from_ok && to_ok) break;
-  } while (std::strncmp(line+60, "START OF FREQUENCY", 18) && dummy_it < max_lines);
+    if (from_ok && to_ok)
+      break;
+  } while (std::strncmp(line + 60, "START OF FREQUENCY", 18) &&
+           dummy_it < max_lines);
   // do not use the following check
-  // } while (std::strncmp(line+60, "END OF ANTENNA", 14) && dummy_it < max_lines);
-  // cause this may leave the stream just after the line "END OF ANTENNA" that
-  // means that calling next the skip_rest_of_antenna function will cause a
-  // whole antenna record block to be skipped. This was indeed a bug (for the
-  // function find_satellite_antenna()
+  // } while (std::strncmp(line+60, "END OF ANTENNA", 14) && dummy_it <
+  // max_lines); cause this may leave the stream just after the line "END OF
+  // ANTENNA" that means that calling next the skip_rest_of_antenna function
+  // will cause a whole antenna record block to be skipped. This was indeed a
+  // bug (for the function find_satellite_antenna()
 
   if (++dummy_it >= max_lines) {
     return 20;
@@ -499,37 +486,37 @@ noexcept
 /// @return         Returns an integer; if 0 then the satellite/antenna was
 ///                 found, matched and resolved. Otherwise an integer >0 is
 ///                 returned (and the satellite was not matched)
-int
-Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
-                              const ngpt::datetime<ngpt::seconds>& at,
-                              pos_type& ant_pos, Satellite* sv) noexcept
-{
+int Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
+                                  const ngpt::datetime<ngpt::seconds> &at,
+                                  pos_type &ant_pos, Satellite *sv) noexcept {
   char line[MAX_HEADER_CHARS];
 
   // go to the top of the file, after the header
   __istream.seekg(__end_of_head, std::ios_base::beg);
 
-  ReceiverAntenna  cur_ant;
-  Satellite        cur_sat;
-  int              stat1,
-                   stat2;
+  ReceiverAntenna cur_ant;
+  Satellite cur_sat;
+  int stat1, stat2;
 
-  while ( !(stat1 = read_next_antenna_type(cur_ant, line)) ) {
+  while (!(stat1 = read_next_antenna_type(cur_ant, line))) {
     cur_sat.system() = SATELLITE_SYSTEM::mixed;
     ant_pos = __istream.tellg();
     if (!resolve_satellite_antenna_line(line, cur_sat)) {
       if (cur_sat.prn() == prn && cur_sat.system() == ss) {
         if (!check_time_interval(__istream, at)) {
-          if (sv!=nullptr) *sv = cur_sat;
+          if (sv != nullptr)
+            *sv = cur_sat;
           return 0;
         }
       }
     }
-    if ((stat2 = skip_rest_of_antenna())) break;
+    if ((stat2 = skip_rest_of_antenna()))
+      break;
   }
 
   // some error status is set
-  if (stat1 > 0 || stat2) return 1;
+  if (stat1 > 0 || stat2)
+    return 1;
 
   return 10;
 }
@@ -597,21 +584,19 @@ Antex::find_satellite_antenna(int prn, SATELLITE_SYSTEM ss,
 /// @param[in] ss   The satellite system of the satellite
 /// @param[in] at   The epoch we want the satellite for (must match the fields
 ///                 "VALID FROM" and "VALID UNTIL")
-/// @param[out] sv  Satellite instance with all info collected off from the 
+/// @param[out] sv  Satellite instance with all info collected off from the
 ///                 antex file (aka prn, svn, sNNN, cospar id, antenna)
 /// @return         An integer is returned; 0 denotes success, aka the satellite
 ///                 was found and the values collected; anything other than
 ///                 0 denotes an error.
-int
-Antex::get_satellite_info(int prn, SATELLITE_SYSTEM ss,
-                       const ngpt::datetime<ngpt::seconds>& at, Satellite& sv)
-noexcept
-{   
+int Antex::get_satellite_info(int prn, SATELLITE_SYSTEM ss,
+                              const ngpt::datetime<ngpt::seconds> &at,
+                              Satellite &sv) noexcept {
   pos_type ant_pos;
   return find_satellite_antenna(prn, ss, at, ant_pos, &sv);
 }
 
-/// Get the list of PCO values for a given satellite (antenna). 
+/// Get the list of PCO values for a given satellite (antenna).
 /// @param[in] prn  The PRN of the satellite or to be more precise:
 ///                 the PRN number (GPS, Compass),
 ///                 the slot number (GLONASS),
@@ -623,16 +608,14 @@ noexcept
 ///                 "VALID FROM" and "VALID UNTIL")
 /// @param[out] pco_list  The PCO values for the satellite antenna
 /// @param[out] sv  If not NULL, a Satellite instance with all info collected
-///                 off from the antex file (aka prn, svn, sNNN, cospar id, 
+///                 off from the antex file (aka prn, svn, sNNN, cospar id,
 ///                 antenna)
 /// @return         An integer is returned; 0 denotes success, aka the satellite
 ///                 was found and the PCO values collected; anything other than
 ///                 0 denotes an error.
-int
-Antex::get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
-                       const ngpt::datetime<ngpt::seconds>& at,
-                       AntennaPcoList& pco_list, Satellite* sv) noexcept
-{   
+int Antex::get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
+                           const ngpt::datetime<ngpt::seconds> &at,
+                           AntennaPcoList &pco_list, Satellite *sv) noexcept {
   pos_type ant_pos;
 
   // clean any entries in pco_list
@@ -640,7 +623,8 @@ Antex::get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
 
   // match the antenna
   int ant_found = find_satellite_antenna(prn, ss, at, ant_pos, sv);
-  if (ant_found > 0) return ant_found;
+  if (ant_found > 0)
+    return ant_found;
 
   // go to the position where the antenna was found
   __istream.seekg(ant_pos, std::ios_base::beg);
@@ -666,19 +650,18 @@ Antex::get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
 ///                       1 : antenna was not found (model+radome)
 ///                       10: antenna (model+radome) found, but serial did not
 ///                           match
-int
-Antex::get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
-                       bool must_match_serial) noexcept
-{
-  pos_type         ant_pos;
-  ReceiverAntenna  ant_out;
+int Antex::get_antenna_pco(const ReceiverAntenna &ant_in,
+                           AntennaPcoList &pco_list,
+                           bool must_match_serial) noexcept {
+  pos_type ant_pos;
+  ReceiverAntenna ant_out;
 
   // clean any entries in pco_list
   pco_list.__vecref__().clear();
 
   // match the antenna
   int ant_found = find_closest_antenna_match(ant_in, ant_out, ant_pos);
-  if (ant_found>0) {
+  if (ant_found > 0) {
     return ant_found;
   } else if (!ant_found && must_match_serial) {
     return 10;
@@ -703,41 +686,39 @@ Antex::get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
 /// @param[in] fin       The antex input stream (aka instance's __istream)
 /// @param[out] pco_list Collected PCO values
 /// @return              Anything other than 0 denotes an error.
-int
-collect_pco(std::ifstream& fin, ngpt::AntennaPcoList& pco_list) noexcept
-{
+int collect_pco(std::ifstream &fin, ngpt::AntennaPcoList &pco_list) noexcept {
   char hline[MAX_HEADER_CHARS];
   char gline[MAX_GRID_CHARS];
   char tmp[11];
 
   // next field is 'METH / BY / # / DATE'
-  if (!fin.getline(hline, MAX_HEADER_CHARS)
-      || std::strncmp(hline+60, "METH / BY / # / DATE", 20)) {
+  if (!fin.getline(hline, MAX_HEADER_CHARS) ||
+      std::strncmp(hline + 60, "METH / BY / # / DATE", 20)) {
     return 1;
   }
 
   // next field is 'DAZI'
-  if (!fin.getline(hline, MAX_HEADER_CHARS)
-      || std::strncmp(hline+60, "DAZI", 4)) {
+  if (!fin.getline(hline, MAX_HEADER_CHARS) ||
+      std::strncmp(hline + 60, "DAZI", 4)) {
     // dazi = std::stof(hline+2, nullptr);
     return 2;
   }
 
   // next field is 'ZEN1 / ZEN2 / DZEN'
-  if (!fin.getline(hline, MAX_HEADER_CHARS)
-      || std::strncmp(hline+60, "ZEN1 / ZEN2 / DZEN", 18)) {
+  if (!fin.getline(hline, MAX_HEADER_CHARS) ||
+      std::strncmp(hline + 60, "ZEN1 / ZEN2 / DZEN", 18)) {
     return 3;
   }
 
   // next field is '# OF FREQUENCIES'
   int num_of_freqs = 0;
-  if (!fin.getline(hline, MAX_HEADER_CHARS)
-      || std::strncmp(hline+60, "# OF FREQUENCIES", 16)) {
+  if (!fin.getline(hline, MAX_HEADER_CHARS) ||
+      std::strncmp(hline + 60, "# OF FREQUENCIES", 16)) {
     return 4;
   } else {
     try {
       num_of_freqs = std::stoi(std::string(hline, 6), nullptr);
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
       return 4;
     }
   }
@@ -746,22 +727,22 @@ collect_pco(std::ifstream& fin, ngpt::AntennaPcoList& pco_list) noexcept
   // of optional fields.
   do {
     fin.getline(hline, MAX_HEADER_CHARS);
-  } while (fin && std::strncmp(hline+60, "START OF FREQUENCY", 18));
+  } while (fin && std::strncmp(hline + 60, "START OF FREQUENCY", 18));
 
   ngpt::SATELLITE_SYSTEM ss;
-  ngpt::ObservationCode  obsc;
+  ngpt::ObservationCode obsc;
   int bn;
   double dn, de, du;
-  for (int i=0; i<num_of_freqs; i++) {
+  for (int i = 0; i < num_of_freqs; i++) {
     // make sure we are at the START OF FREQUENCY line
-    if (!fin || std::strncmp(hline+60, "START OF FREQUENCY", 18) ) {
+    if (!fin || std::strncmp(hline + 60, "START OF FREQUENCY", 18)) {
       // wait!! this might be a frequency rms from the previous frequency
-      if (!std::strncmp(hline+60, "START OF FREQ RMS", 17)) {
+      if (!std::strncmp(hline + 60, "START OF FREQ RMS", 17)) {
         do {
           fin.getline(gline, MAX_GRID_CHARS);
-        } while (fin && std::strncmp(gline+60, "END OF FREQ RMS", 15));
-        if (!fin.getline(hline, MAX_HEADER_CHARS) 
-            || std::strncmp(hline+60, "START OF FREQUENCY", 18) ) {
+        } while (fin && std::strncmp(gline + 60, "END OF FREQ RMS", 15));
+        if (!fin.getline(hline, MAX_HEADER_CHARS) ||
+            std::strncmp(hline + 60, "START OF FREQUENCY", 18)) {
           return 11;
         }
       } else {
@@ -771,20 +752,20 @@ collect_pco(std::ifstream& fin, ngpt::AntennaPcoList& pco_list) noexcept
     // resolve satellite system and observation code
     try {
       ss = ngpt::char_to_satsys(hline[3]);
-      bn = std::stoi(std::string(hline+4, 2));
+      bn = std::stoi(std::string(hline + 4, 2));
     } catch (std::exception &) {
       return 6;
     }
     obsc.band() = bn;
     // next field is 'NORTH / EAST / UP'
-    if ( fin.getline(hline, MAX_HEADER_CHARS) 
-        && !std::strncmp(hline+60, "NORTH / EAST / UP", 17)) {
+    if (fin.getline(hline, MAX_HEADER_CHARS) &&
+        !std::strncmp(hline + 60, "NORTH / EAST / UP", 17)) {
       tmp[10] = '\0';
       std::memcpy(tmp, hline, 10);
       dn = std::stod(tmp);
-      std::memcpy(tmp, hline+10, 10);
+      std::memcpy(tmp, hline + 10, 10);
       de = std::stod(tmp);
-      std::memcpy(tmp, hline+20, 10);
+      std::memcpy(tmp, hline + 20, 10);
       du = std::stod(tmp);
     } else {
       return 7;
@@ -794,7 +775,7 @@ collect_pco(std::ifstream& fin, ngpt::AntennaPcoList& pco_list) noexcept
     // skip lines until "END OF FREQUENCY"
     do {
       fin.getline(gline, MAX_GRID_CHARS);
-    } while (fin && std::strncmp(gline+60, "END OF FREQUENCY", 16));
+    } while (fin && std::strncmp(gline + 60, "END OF FREQUENCY", 16));
     // read the following line into hline
     fin.getline(hline, MAX_HEADER_CHARS);
   }

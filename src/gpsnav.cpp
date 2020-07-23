@@ -1,8 +1,8 @@
+#include "navrnx.hpp"
+#include <cassert>
+#include <cerrno>
 #include <iostream>
 #include <stdexcept>
-#include <cerrno>
-#include <cassert>
-#include "navrnx.hpp"
 
 using ngpt::NavDataFrame;
 
@@ -40,19 +40,19 @@ using ngpt::NavDataFrame;
 ///             data__[30] : empty                                       ---- 7
 
 /// WGS 84 value of the earth's gravitational constant for GPS user
-constexpr double mi_gps {3.986005e14};
+constexpr double mi_gps{3.986005e14};
 
 /// WGS 84 value of the earth's rotation rate
-constexpr double OMEGAE_dot {7.2921151467e-5};
+constexpr double OMEGAE_dot{7.2921151467e-5};
 
 /// PZ-90/GLO mean angular velocity of the Earth relative to vernal equinox
-constexpr double OMEGA_E {7.2921151467e-5}; // units: rad/sec
+constexpr double OMEGA_E{7.2921151467e-5}; // units: rad/sec
 
 /// Seconds in (GPS) week
-constexpr double SEC_IN_WEEK {604800e0};
+constexpr double SEC_IN_WEEK{604800e0};
 
 /// Constant F for SV Clock Correction in seconds/sqrt(meters)
-constexpr double F_CLOCK {-4.442807633e-10};
+constexpr double F_CLOCK{-4.442807633e-10};
 
 /* OBSOLETE this function is replaced by template kepler2state
    ----------------------------------------------------------------------------
@@ -61,9 +61,9 @@ constexpr double F_CLOCK {-4.442807633e-10};
 /// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
 ///                      this normally means GPSTime
 /// @param[out] state    SV x,y,z -components of antenna phase center position
-///                      in the WGS84 ECEF coordinate system in meters; the 
+///                      in the WGS84 ECEF coordinate system in meters; the
 ///                      state array must have length >=3
-/// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the 
+/// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the
 ///                      value of the computed Ek aka Eccentric Anomaly
 /// @return Anything other than 0 denotes an error
 ///
@@ -76,15 +76,13 @@ NavDataFrame::gps_ecef(double t_sec, double* state, double* Ek_ptr)
 const noexcept
 {
   int status = 0;
-  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
-                                         //+ the Kepler equation for the 
+  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively)
+                                         //+ the Kepler equation for the
                                          //+ eccentricity anomaly
   const double A  (data__[10]*data__[10]);     //  Semi-major axis
-  const double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion (rad/sec)
-  const double toe_sec = toe__.sec().to_fractional_seconds();
-  const double tk (t_sec-toe_sec);
-#ifdef DEBUG
-  if (tk<-302400e0 || tk>302400e0) {
+  const double n0 (std::sqrt(mi_gps/(A*A*A))); //  Computed mean motion
+(rad/sec) const double toe_sec = toe__.sec().to_fractional_seconds(); const
+double tk (t_sec-toe_sec); #ifdef DEBUG if (tk<-302400e0 || tk>302400e0) {
     std::cerr<<"\n[ERROR] NavDataFrame::gps_ecef Delta-seconds are off! WTF?";
     return -1;
   }
@@ -118,29 +116,32 @@ const noexcept
   // Ek           = std::acos((e+cosVk)/(1e0+e*cosVk));    // Eccentric Anomaly
 
   // Second Harmonic Perturbations
-  const double Fk      (vk+data__[17]);                       // Argument of Latitude
-  const double sin2F   (std::sin(2e0*Fk));
-  const double cos2F   (std::cos(2e0*Fk));
-  const double duk     (data__[9]*sin2F  + data__[7]*cos2F);  // Argument of Latitude
+  const double Fk      (vk+data__[17]);                       // Argument of
+Latitude const double sin2F   (std::sin(2e0*Fk)); const double cos2F
+(std::cos(2e0*Fk)); const double duk     (data__[9]*sin2F  + data__[7]*cos2F);
+// Argument of Latitude
                                                         //+ Correction
-  const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius Correction
-  const double dik     (data__[14]*sin2F + data__[12]*cos2F); // Inclination Correction
+  const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius
+Correction const double dik     (data__[14]*sin2F + data__[12]*cos2F); //
+Inclination Correction
 
-  const double uk      (Fk + duk);                            // Corrected Argument 
+  const double uk      (Fk + duk);                            // Corrected
+Argument
                                                         //+ of Latitude
-  const double rk      (A*(1e0-e*std::cos(Ek))+drk);          // Corrected Radius
-  const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected Inclination
-                                
+  const double rk      (A*(1e0-e*std::cos(Ek))+drk);          // Corrected
+Radius const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected
+Inclination
+
   // Positions in orbital plane
   const double xk_dot  (rk*std::cos(uk));
   const double yk_dot  (rk*std::sin(uk));
-  
+
   // Corrected longitude of ascending node
-  const double omega_k (data__[13]+(data__[18]-OMEGAE_dot)*tk-OMEGAE_dot*data__[11]);
-  const double sinOk   (std::sin(omega_k));
-  const double cosOk   (std::cos(omega_k));
-  const double cosik   (std::cos(ik));
-  
+  const double omega_k
+(data__[13]+(data__[18]-OMEGAE_dot)*tk-OMEGAE_dot*data__[11]); const double
+sinOk   (std::sin(omega_k)); const double cosOk   (std::cos(omega_k)); const
+double cosik   (std::cos(ik));
+
   state[0] = xk_dot*cosOk - yk_dot*sinOk*cosik;
   state[1] = xk_dot*sinOk + yk_dot*cosOk*cosik;
   state[2] = yk_dot*std::sin(ik);
@@ -154,21 +155,21 @@ const noexcept
    ----------------------------------------------------------------------------
 /// @brief Compute SV Clock Correction
 ///
-/// Determine the effective SV PRN code phase offset referenced to the phase 
-/// center of the antennas (∆tsv) with respect to GPS system time (t) at the 
-/// time of data transmission. This estimated correction accounts for the 
-/// deterministic SV clock error characteristics of bias, drift and aging, as 
-/// well as for the SV implementation characteristics of group delay bias and 
-/// mean differential group delay. Since these coefficients do not include 
-/// corrections for relativistic effects, the user's equipment must determine 
+/// Determine the effective SV PRN code phase offset referenced to the phase
+/// center of the antennas (∆tsv) with respect to GPS system time (t) at the
+/// time of data transmission. This estimated correction accounts for the
+/// deterministic SV clock error characteristics of bias, drift and aging, as
+/// well as for the SV implementation characteristics of group delay bias and
+/// mean differential group delay. Since these coefficients do not include
+/// corrections for relativistic effects, the user's equipment must determine
 /// the requisite relativistic correction.
-/// The user shall correct the time received from the SV with the equation 
+/// The user shall correct the time received from the SV with the equation
 /// (in seconds):
 /// t = t_sv - Δt_sv
 ///
 /// @param[in]  t_sec Time (in seconds) from ToC
-/// @param[out] dt_sv SV Clock Correction in seconds; satellite clock bias 
-///                   includes relativity correction without code bias (tgd or 
+/// @param[out] dt_sv SV Clock Correction in seconds; satellite clock bias
+///                   includes relativity correction without code bias (tgd or
 ///                   bgd)
 /// @param[in]  Ein   If provided, the value to use for Eccentric Anomaly (to
 ///                   compute the relativistic error term). If not provided,
@@ -181,8 +182,8 @@ int
 NavDataFrame::gps_dtsv(double t_sec, double& dt_sv, double* Ein)
 const noexcept
 {
-  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
-                                         //+ the Kepler equation for the 
+  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively)
+                                         //+ the Kepler equation for the
                                          //+ eccentricity anomaly
   double dt = t_sec - toc__.sec().to_fractional_seconds();
 #ifdef DEBUG
@@ -227,27 +228,28 @@ const noexcept
 */
 
 /// @brief URA SV accuracy (meters)
-/// Compute User Range Accuracy for given SV. 
-float
-NavDataFrame::gps_ura() const noexcept
-{
+/// Compute User Range Accuracy for given SV.
+float NavDataFrame::gps_ura() const noexcept {
   float ura_index = data__[23];
   float ura_meters = std::numeric_limits<float>::max();
 
-  if (ura_index<=6) {
-    ura_meters = std::pow(2, 1e0+ura_index/2e0);
-    ura_meters = static_cast<float>((long)(std::round(ura_meters*10e0)))/10e0;
-  } else if (ura_index<15) {
-    ura_meters = std::pow(2e0, ura_index-2e0);
-    ura_meters = static_cast<float>((long)(std::round(ura_meters*10e0)))/10e0;
+  if (ura_index <= 6) {
+    ura_meters = std::pow(2, 1e0 + ura_index / 2e0);
+    ura_meters =
+        static_cast<float>((long)(std::round(ura_meters * 10e0))) / 10e0;
+  } else if (ura_index < 15) {
+    ura_meters = std::pow(2e0, ura_index - 2e0);
+    ura_meters =
+        static_cast<float>((long)(std::round(ura_meters * 10e0))) / 10e0;
   } else {
-    std::cerr<<"\n[WARNING] URA index is "<<ura_index<<" use satellite at your own risk!";
+    std::cerr << "\n[WARNING] URA index is " << ura_index
+              << " use satellite at your own risk!";
   }
   return ura_meters;
 }
 
 /// @brief see Rinex 3.04 par. 6.11
 /// Fit interval in seconds
-int
-NavDataFrame::gps_fit_interval() const noexcept
-{return 3600L*static_cast<int>(data__[28]);}
+int NavDataFrame::gps_fit_interval() const noexcept {
+  return 3600L * static_cast<int>(data__[28]);
+}

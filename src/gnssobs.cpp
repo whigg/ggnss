@@ -1,6 +1,6 @@
-#include <stdexcept>
-#include <cstring>
 #include "gnssobs.hpp"
+#include <cstring>
+#include <stdexcept>
 
 using ngpt::OBSERVABLE_TYPE;
 using ngpt::ObservationCode;
@@ -20,16 +20,22 @@ using ngpt::ObservationCode;
 /// @see          RINEX v3.x
 /// @todo can we somehow not throw??
 OBSERVABLE_TYPE
-ngpt::char_to_observabletype(char c)
-{
+ngpt::char_to_observabletype(char c) {
   switch (c) {
-    case 'C' : return OBSERVABLE_TYPE::pseudorange;
-    case 'L' : return OBSERVABLE_TYPE::carrier_phase;
-    case 'D' : return OBSERVABLE_TYPE::doppler;
-    case 'S' : return OBSERVABLE_TYPE::signal_strength;
-    case 'I' : return OBSERVABLE_TYPE::ionosphere_phase_delay;
-    case 'X' : return OBSERVABLE_TYPE::receiver_channel_number;
-    default  : throw std::runtime_error("[ERROR] Cannot match char to observable type");
+  case 'C':
+    return OBSERVABLE_TYPE::pseudorange;
+  case 'L':
+    return OBSERVABLE_TYPE::carrier_phase;
+  case 'D':
+    return OBSERVABLE_TYPE::doppler;
+  case 'S':
+    return OBSERVABLE_TYPE::signal_strength;
+  case 'I':
+    return OBSERVABLE_TYPE::ionosphere_phase_delay;
+  case 'X':
+    return OBSERVABLE_TYPE::receiver_channel_number;
+  default:
+    throw std::runtime_error("[ERROR] Cannot match char to observable type");
   }
 }
 
@@ -45,17 +51,22 @@ ngpt::char_to_observabletype(char c)
 /// @return      The OBSERVABLE_TYPE as character
 /// @see          RINEX v3.x
 /// @warning This function should always include all OBSERVABLE_TYPE options.
-char
-ngpt::observabletype_to_char(OBSERVABLE_TYPE t) noexcept
-{
+char ngpt::observabletype_to_char(OBSERVABLE_TYPE t) noexcept {
   switch (t) {
-    case OBSERVABLE_TYPE::pseudorange : return 'C';
-    case OBSERVABLE_TYPE::carrier_phase : return 'L';
-    case OBSERVABLE_TYPE::doppler : return 'D';
-    case OBSERVABLE_TYPE::signal_strength : return 'S';
-    case OBSERVABLE_TYPE::ionosphere_phase_delay : return 'I';
-    case OBSERVABLE_TYPE::receiver_channel_number : return 'X';
-    case OBSERVABLE_TYPE::any : return '?';
+  case OBSERVABLE_TYPE::pseudorange:
+    return 'C';
+  case OBSERVABLE_TYPE::carrier_phase:
+    return 'L';
+  case OBSERVABLE_TYPE::doppler:
+    return 'D';
+  case OBSERVABLE_TYPE::signal_strength:
+    return 'S';
+  case OBSERVABLE_TYPE::ionosphere_phase_delay:
+    return 'I';
+  case OBSERVABLE_TYPE::receiver_channel_number:
+    return 'X';
+  case OBSERVABLE_TYPE::any:
+    return '?';
   }
   // should never reach this point
   return '?';
@@ -70,27 +81,25 @@ ngpt::observabletype_to_char(OBSERVABLE_TYPE t) noexcept
 ///                 third character is present, it is treated as an attribute
 ///                 Any trailing characters are discarded.
 /// @see RINEX v3.x, RINEX v.2x
-ObservationCode::ObservationCode(const char* str)
-{
+ObservationCode::ObservationCode(const char *str) {
   if (std::strlen(str) < 2) {
-    throw std::runtime_error("[ERROR] Cannot convert string to ObservationCode");
+    throw std::runtime_error(
+        "[ERROR] Cannot convert string to ObservationCode");
   }
   ObservationAttribute at;
   auto ot = char_to_observabletype(*str);
-  int  bn = str[1] - '0';
+  int bn = str[1] - '0';
   if (std::strlen(str) > 2 && str[2] != ' ') {
     at = ObservationAttribute(str[2]);
   }
-     
+
   __type = ot;
   __band = bn;
   __attr = at;
 }
 
-std::string
-ObservationCode::to_string() const
-{
-  std::string str ("???");
+std::string ObservationCode::to_string() const {
+  std::string str("???");
   char c0 = ngpt::observabletype_to_char(__type);
   auto c1 = std::to_string(__band);
   char c2 = __attr.as_char();

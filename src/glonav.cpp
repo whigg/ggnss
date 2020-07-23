@@ -1,21 +1,20 @@
+#include "navrnx.hpp"
+#include <cerrno>
 #include <iostream>
 #include <stdexcept>
-#include <cerrno>
-#include "navrnx.hpp"
 #ifdef DEBUG
 #include "ggdatetime/datetime_write.hpp"
 #endif
 
 using ngpt::NavDataFrame;
 
-/// GLONASS:    
+/// GLONASS:
 ///                        : Time of Clock in UTC time
 ///             data__[0]  : SV clock bias in sec, aka -TauN
 ///             data__[1]  : SV relative frequency bias, aka +GammaN
-///             data__[2]  : Message frame time(tk+nd*86400) in seconds of UTC week
-///             data__[3]  : Satellite position X (km)
-///             data__[4]  : velocity X dot (km/sec)
-///             data__[5]  : X acceleration (km/sec2)
+///             data__[2]  : Message frame time(tk+nd*86400) in seconds of UTC
+///             week data__[3]  : Satellite position X (km) data__[4]  :
+///             velocity X dot (km/sec) data__[5]  : X acceleration (km/sec2)
 ///             data__[6]  : health(0=healthy, 1=unhealthy)(MSB of 3-bit Bn)
 ///             data__[7]  : Satellite position Y (km)
 ///             data__[8]  : velocity Y dot (km/sec)
@@ -33,12 +32,12 @@ using ngpt::NavDataFrame;
 ///          already converted to meters
 ///
 /// @warning The following is quoted from Rinex v.304
-///          GLONASS is basically running on UTC (or, more precisely, GLONASS 
-///          system time linked to UTC(SU)), i.e. the time tags are given in 
-///          UTC and not GPS time. It is not a continuous time, i.e. it 
-///          introduces the same leap seconds as UTC. The reported GLONASS time 
-///          has the same hours as UTC and not UTC+3 h as the original GLONASS 
-///          System Time! I.e. the time tags in the GLONASS navigation files 
+///          GLONASS is basically running on UTC (or, more precisely, GLONASS
+///          system time linked to UTC(SU)), i.e. the time tags are given in
+///          UTC and not GPS time. It is not a continuous time, i.e. it
+///          introduces the same leap seconds as UTC. The reported GLONASS time
+///          has the same hours as UTC and not UTC+3 h as the original GLONASS
+///          System Time! I.e. the time tags in the GLONASS navigation files
 ///          are given in UTC (i.e. not Moscow time or GPS time).
 
 // integration step for glonass in seconds (h parameter for Runge-Kutta4)
@@ -50,20 +49,18 @@ constexpr double GM_GLO = 398600441.8e06;
 // semi-major axis of the PZ-90 Earth’s ellipsoid
 constexpr double AE_GLO = 6378136e0;
 
-// second degree coefficient of normal potential, which describes the 
+// second degree coefficient of normal potential, which describes the
 // Earth’s polar flattening
 constexpr double J2_GLO = 1082625.75e-9;
 
 // mean angular velocity of the Earth relative to vernal equinox
 constexpr double OMEGA_GLO = 7.2921151467e-5; // rad/s
 
-int
-NavDataFrame::glo_clock(double t_mt, double& dtsv)
-const noexcept
-{
+int NavDataFrame::glo_clock(double t_mt, double &dtsv) const noexcept {
   const double toe_mt = toe__.sec().to_fractional_seconds();
-  double deltat = t_mt - toe_mt - std::round((t_mt-toe_mt)/86400e0)*86400e0;
-  dtsv = data__[0] + data__[1]*deltat;
+  double deltat =
+      t_mt - toe_mt - std::round((t_mt - toe_mt) / 86400e0) * 86400e0;
+  dtsv = data__[0] + data__[1] * deltat;
   return 0;
 }
 
@@ -71,7 +68,7 @@ const noexcept
 ///
 /// @param[in] jd0 Julian Date for 00:00
 /// @return Greenwich Mean Sidereal Time (GMST) for given Julian Date
-/// @cite GLONASS-ICD, Appendix K, "Algorithm for calculation of the current 
+/// @cite GLONASS-ICD, Appendix K, "Algorithm for calculation of the current
 ///       Julian date JD0, Gregorian date, and GMST"
 /*
 double
@@ -79,8 +76,9 @@ __gmst__(double jd0) noexcept
 {
   // Earth’s rotation angle in radians
   constexpr double D2PI = 2e0*3.14159265358979323846e0;
-  const double era = D2PI*(0.7790572732640+1.00273781191135448*(jd0-2451545.0e0));
-  //  time from Epoch 2000, 1st January, 00:00 (UTC(SU)) till the current 
+  const double era =
+D2PI*(0.7790572732640+1.00273781191135448*(jd0-2451545.0e0));
+  //  time from Epoch 2000, 1st January, 00:00 (UTC(SU)) till the current
   // Epoch in Julian centuries, containing 36525 ephemeris days each
   double td = (jd0-2451545.0e0)/36525e0;
   double gmst = era + 0.0000000703270726e0 + (0.0223603658710194e0 +
@@ -93,15 +91,15 @@ __gmst__(double jd0) noexcept
 }
 */
 
-/// This is the computation of the system of ODE's described in J.2.1 in 
-/// GLONASS ICD, par. J2 "Simplified algorithm for determination of position 
-/// and velocity vector components for the SV’s center of mass for the given 
+/// This is the computation of the system of ODE's described in J.2.1 in
+/// GLONASS ICD, par. J2 "Simplified algorithm for determination of position
+/// and velocity vector components for the SV’s center of mass for the given
 /// instant in MT"
-/// 
+///
 /// Components for the SV’s center of mass for the given instant of MT
 /// x    = [ x0, y0, z0, Vx0,    Vy0,    Vz0   ]
 /// xdot = [ Vx, Vy, Vz, V_dotx, Vdot_y, Vdot_z]
-/// acc is the vector of accelerations induced by gravitational perturbations of 
+/// acc is the vector of accelerations induced by gravitational perturbations of
 /// the Sun and Moon as given in the Navigation message.
 /// The function will use x and acc to compute the xdot vector, using the
 /// system of (differential) equations described in J.2.1
@@ -113,38 +111,37 @@ __gmst__(double jd0) noexcept
 ///              data frame
 /// @param[out] Array of length 6; at return this is filled with the values of
 ///             the computed ODE system
-/// 
+///
 /// @warning All units are in meters, meters/sec and meters2/sec
-void
-glo_state_deriv(const double *x, const double* acc, double *xdot)
-noexcept
-{
-  const double r2 = (x[0]*x[0]+x[1]*x[1]+x[2]*x[2]);
-  const double r3 = r2*std::sqrt(r2);
-  const double omg2 = OMEGA_GLO*OMEGA_GLO;                    // ω2
-  const double a = 1.5e0*J2_GLO*GM_GLO*(AE_GLO*AE_GLO)/r2/r3; // 3/2*J2*mu*Ae^2/r^5
-  const double b = 5e0*x[2]*x[2]/r2;                          // 5*z^2/r^2
-  const double c = -GM_GLO/r3-a*(1e0-b);                      // -mu/r^3-a(1-b)
+void glo_state_deriv(const double *x, const double *acc,
+                     double *xdot) noexcept {
+  const double r2 = (x[0] * x[0] + x[1] * x[1] + x[2] * x[2]);
+  const double r3 = r2 * std::sqrt(r2);
+  const double omg2 = OMEGA_GLO * OMEGA_GLO; // ω2
+  const double a = 1.5e0 * J2_GLO * GM_GLO * (AE_GLO * AE_GLO) / r2 /
+                   r3;                           // 3/2*J2*mu*Ae^2/r^5
+  const double b = 5e0 * x[2] * x[2] / r2;       // 5*z^2/r^2
+  const double c = -GM_GLO / r3 - a * (1e0 - b); // -mu/r^3-a(1-b)
   xdot[0] = x[3];
   xdot[1] = x[4];
   xdot[2] = x[5];
-  xdot[3]=(c+omg2)*x[0]+2e0*OMEGA_GLO*x[4]+acc[0];
-  xdot[4]=(c+omg2)*x[1]-2e0*OMEGA_GLO*x[3]+acc[1];
-  xdot[5]=(c-2e0*a)*x[2]+acc[2];
-  
+  xdot[3] = (c + omg2) * x[0] + 2e0 * OMEGA_GLO * x[4] + acc[0];
+  xdot[4] = (c + omg2) * x[1] - 2e0 * OMEGA_GLO * x[3] + acc[1];
+  xdot[5] = (c - 2e0 * a) * x[2] + acc[2];
+
   return;
 }
 
-/// This is the computation of the system of ODE's described in J.1 in 
-/// GLONASS ICD, par. J1 "Precise algorithm for determination of position and 
-/// velocity vector components for the SV’s center of mass for the given 
+/// This is the computation of the system of ODE's described in J.1 in
+/// GLONASS ICD, par. J1 "Precise algorithm for determination of position and
+/// velocity vector components for the SV’s center of mass for the given
 /// instant of MT"
-/// 
+///
 /// Components for the SV’s center of mass for the given instant of MT
 /// x    = [ x0, y0, z0, Vx0,    Vy0,    Vz0   ]
 /// xdot = [ Vx, Vy, Vz, V_dotx, Vdot_y, Vdot_z]
-/// acc is the vector of accelerations induced by gravitational perturbations of 
-/// the Sun and Moon. 
+/// acc is the vector of accelerations induced by gravitational perturbations of
+/// the Sun and Moon.
 /// The function will use x and acc to compute the xdot vector, using the
 /// system of (differential) equations described in J.1
 ///
@@ -155,7 +152,7 @@ noexcept
 ///              data frame
 /// @param[out] Array of length 6; at return this is filled with the values of
 ///             the computed ODE system
-/// 
+///
 /// @warning All units are in meters, meters/sec and meters2/sec
 /*
 void
@@ -177,7 +174,7 @@ noexcept
   xdot[3] = -GMhat*xhat - _32J2GMr*(1e0-5e0*zhat2)*xhat + acc[0];
   xdot[4] = -GMhat*yhat - _32J2GMr*(1e0-5e0*zhat2)*yhat + acc[1];
   xdot[5] = -GMhat*zhat - _32J2GMr*(3e0-5e0*zhat2)*zhat + acc[2];
-  
+
   return;
 }
 */
@@ -185,7 +182,7 @@ noexcept
 /// @brief Transform ECEF (PZ90) coordinates to inertial
 ///
 /// The transformation is used in the precise algorithm for calculating SV
-/// centre of mass coordinates using the broadcast message. The system of 
+/// centre of mass coordinates using the broadcast message. The system of
 /// equations is described in J.4
 ///
 /// @param[in]  x_ecef      State vector in PZ90 reference frame (meters)
@@ -197,7 +194,7 @@ noexcept
 ///                         transformed to inertial frame
 /*
 void
-glo_ecef2inertial(const double *x_ecef, ngpt::datetime<ngpt::seconds> tb_MT, 
+glo_ecef2inertial(const double *x_ecef, ngpt::datetime<ngpt::seconds> tb_MT,
   double *x_inertial, double *acc=nullptr)
 noexcept
 {
@@ -229,7 +226,7 @@ noexcept
 /// @brief Transform inertial coordinates to ECEF (PZ90)
 ///
 /// The transformation is used in the precise algorithm for calculating SV
-/// centre of mass coordinates using the broadcast message. The system of 
+/// centre of mass coordinates using the broadcast message. The system of
 /// equations is described in J.5
 ///
 /// @param[in]  x_inertial  State vector in inertial reference frame (meters)
@@ -241,7 +238,7 @@ noexcept
 ///                         transformed to ECEF frame
 /*
 void
-glo_inertial2ecef(const double *x_inertial, ngpt::datetime<ngpt::seconds> ti_MT, 
+glo_inertial2ecef(const double *x_inertial, ngpt::datetime<ngpt::seconds> ti_MT,
   double *x_ecef)
 noexcept
 {
@@ -263,12 +260,12 @@ noexcept
 }
 */
 
-/// This function will compute the state vector for the SV (reffered to the SV 
-/// mass centre), at time t_sec (with reference time tb=ToE aka message frame 
-/// time) in the ECEF PZ-90 reference frame, following the "simplified" algorithm, 
-/// aka "Simplified algorithm for determination of position and velocity vector 
-/// components for the SV’s center of mass for the given instant in MT". Note 
-/// that ToE and t_sec must not be more than 15 min apart.
+/// This function will compute the state vector for the SV (reffered to the SV
+/// mass centre), at time t_sec (with reference time tb=ToE aka message frame
+/// time) in the ECEF PZ-90 reference frame, following the "simplified"
+/// algorithm, aka "Simplified algorithm for determination of position and
+/// velocity vector components for the SV’s center of mass for the given instant
+/// in MT". Note that ToE and t_sec must not be more than 15 min apart.
 ///
 /// @param[in]  t_sec  Time (seconds) from ToE in same system as ToE
 /// @param[out] state  array of size 6; SV centre of mass state vector (aka
@@ -282,18 +279,16 @@ noexcept
 ///       Note that in RINEX v3.x, GLONASS time reference for the Navigation
 ///       message is actually UTC.
 ///
-/// @see  GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of 
+/// @see  GLONASS-ICD, Appendix J, "Algorithms for determination of SV center of
 ///       mass position and velocity vector components using ephemeris data"
-int
-NavDataFrame::glo_ecef(double t_sec, double* state) 
-const noexcept
-{
+int NavDataFrame::glo_ecef(double t_sec, double *state) const noexcept {
   int status = 0;
 
   const double toe_sec = toe__.sec().to_fractional_seconds();
-  if (std::abs(t_sec-toe_sec)>15*60e0) {
-    std::cerr<<"\n[WARNING] NavDataFrame::glo_ecef() Time interval too large!"
-      <<"abs("<<t_sec<<" - "<<toe_sec<<") > "<<15*60e0<<" sec";
+  if (std::abs(t_sec - toe_sec) > 15 * 60e0) {
+    std::cerr << "\n[WARNING] NavDataFrame::glo_ecef() Time interval too large!"
+              << "abs(" << t_sec << " - " << toe_sec << ") > " << 15 * 60e0
+              << " sec";
     status = -1;
   }
 
@@ -309,47 +304,51 @@ const noexcept
   acc[0] = data__[5];
   acc[1] = data__[9];
   acc[2] = data__[13];
-  
+
   // quick return if tb == ti
-  if (toe_sec==t_sec) {
-    std::copy(x, x+6, state);
+  if (toe_sec == t_sec) {
+    std::copy(x, x + 6, state);
     return status;
   }
 
   double k1[6], k2[6], k3[6], k4[6];
   double ytmp[6], yti[6];
-  double h = t_sec>toe_sec?h_step:-h_step;
-  double ti= toe_sec;
-  double t_lim = t_sec-std::round((t_sec-toe_sec)/86400)*86400;
-  int    max_it=0;
-  std::copy(x, x+6, yti);
-  // Perform Runge-Kutta 4th 
+  double h = t_sec > toe_sec ? h_step : -h_step;
+  double ti = toe_sec;
+  double t_lim = t_sec - std::round((t_sec - toe_sec) / 86400) * 86400;
+  int max_it = 0;
+  std::copy(x, x + 6, yti);
+  // Perform Runge-Kutta 4th
   // while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
-  while (h>0?ti<t_lim:ti>t_lim && ++max_it<1500) {
+  while (h > 0 ? ti < t_lim : ti > t_lim && ++max_it < 1500) {
     // compute k1
     glo_state_deriv(yti, acc, k1);
     // compute k2
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h/2e0)*k1[i];
+    for (int i = 0; i < 6; i++)
+      ytmp[i] = yti[i] + (h / 2e0) * k1[i];
     glo_state_deriv(ytmp, acc, k2);
     // compute k3
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + (h/2e0)*k2[i];
+    for (int i = 0; i < 6; i++)
+      ytmp[i] = yti[i] + (h / 2e0) * k2[i];
     glo_state_deriv(ytmp, acc, k3);
     // compute k4
-    for (int i=0; i<6; i++) ytmp[i] = yti[i] + h*k3[i];
+    for (int i = 0; i < 6; i++)
+      ytmp[i] = yti[i] + h * k3[i];
     glo_state_deriv(ytmp, acc, k4);
     // update y
-    for (int i=0; i<6; i++) yti[i] += (h/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+    for (int i = 0; i < 6; i++)
+      yti[i] += (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
     // update ti
     ti += h;
   }
-  if (max_it>=1500) {
-    std::cerr<<"\n[ERROR] NavDataFrame::glo_ecef() h="<<h<<", from "
-      <<toe_sec<<" to "<<t_lim<<" last t="<<ti;
+  if (max_it >= 1500) {
+    std::cerr << "\n[ERROR] NavDataFrame::glo_ecef() h=" << h << ", from "
+              << toe_sec << " to " << t_lim << " last t=" << ti;
     return 10;
   }
 
   // copy results
-  std::copy(yti, yti+6, state);
+  std::copy(yti, yti + 6, state);
 
   return status;
 }
@@ -363,7 +362,7 @@ const noexcept
   double x[6], acc[3];
   double k1[6], k2[6], k3[6], k4[6];
   double ytmp[6], yti[6];
-  
+
   // tb as datetime instance in MT
   // ngpt::datetime<seconds> tb = glo_tb2date(true);
   if (std::abs(tb_sec-t_sod)>15*60e0) {
@@ -371,7 +370,7 @@ const noexcept
       <<"abs("<<tb_sec<<" - "<<t_sod<<") > "<<15*60e0<<" sec";
     return 9;
   }
-  
+
   // Initial conditions for ODE aka x = [x0, y0, z0, Vx0, Vy0, Vz0]
   x[0] = data__[3];
   x[1] = data__[7];
@@ -384,7 +383,7 @@ const noexcept
   acc[0] = data__[5];
   acc[1] = data__[9];
   acc[2] = data__[13];
-  
+
   // quick return if tb == ti
   if (t_sod == tb_sec) {
     xs = x[0];
@@ -400,15 +399,16 @@ const noexcept
   glo_ecef2inertial(x, tb_dt, ytmp, acc);
   std::copy(ytmp, ytmp+6, x);
 
-  // Perform Runge-Kutta 4th 
+  // Perform Runge-Kutta 4th
   std::copy(x, x+6, yti);
   double h = t_sod>tb_sec?h_step:-h_step;
   double ti= tb_sec;
   double t_lim = t_sod-std::round((t_sod-tb_sec)/86400)*86400;
   int max_it=0;
-  // Perform Runge-Kutta 4th 
+  // Perform Runge-Kutta 4th
   while (std::abs(ti-t_lim)>1e-9 && ++max_it<1500) {
-    // printf("\nt=%10.5f x=%+20.5f y=%+20.5f z=%+20.5f", ti, yti[0], yti[1], yti[2]);
+    // printf("\nt=%10.5f x=%+20.5f y=%+20.5f z=%+20.5f", ti, yti[0], yti[1],
+yti[2]);
     // compute k1
     glo_state_deriv_inertial(yti, acc, k1);
     // compute k2

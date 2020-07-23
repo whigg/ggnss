@@ -1,7 +1,7 @@
+#include "navrnx.hpp"
+#include <cerrno>
 #include <iostream>
 #include <stdexcept>
-#include <cerrno>
-#include "navrnx.hpp"
 
 using ngpt::NavDataFrame;
 
@@ -9,12 +9,12 @@ using ngpt::NavDataFrame;
 ///             data__[0]  : SV clock bias in seconds
 ///             data__[1]  : SV clock drift in m/sec
 ///             data__[2]  : SV clock drift rate in m/sec^2
-///             data__[3]  : AODE Age of Data, Ephemeris (as specified in 
-///                          BeiDou ICD Table Section 5.2.4.11 Table 5-8) and 
+///             data__[3]  : AODE Age of Data, Ephemeris (as specified in
+///                          BeiDou ICD Table Section 5.2.4.11 Table 5-8) and
 ///                          field range is: 0-31
 ///             data__[4]  : Crs (meters)
 ///             data__[5]  : Delta n (radians/sec)
-///             data__[6]  : M0 (radians) 
+///             data__[6]  : M0 (radians)
 ///             data__[7]  : Cuc (radians)
 ///             data__[8]  : e Eccentricty
 ///             data__[9]  : Cus (radians)
@@ -53,16 +53,16 @@ constexpr double OMEGA_BDS = 7.2921150e-5;
 constexpr double C_BDS = 2.99792458e8;
 
 ///
-constexpr double F_CLOCK = -2e0 * std::sqrt(MI_BDS) / (C_BDS*C_BDS);
+constexpr double F_CLOCK = -2e0 * std::sqrt(MI_BDS) / (C_BDS * C_BDS);
 
-/* OBSOLETE this function is replaced by template sv_clock 
+/* OBSOLETE this function is replaced by template sv_clock
    ----------------------------------------------------------------------------
 int
 NavDataFrame::bds_dtsv(double t_sec, double& dt_sv, double* Ein)
 const noexcept
 {
-  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
-                                         //+ the Kepler equation for the 
+  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively)
+                                         //+ the Kepler equation for the
                                          //+ eccentricity anomaly
   double dt = t_sec - toc__.sec().to_fractional_seconds();
 #ifdef DEBUG
@@ -113,9 +113,9 @@ const noexcept
 /// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
 ///                      this normally means BDSTime (BDT)
 /// @param[out] state    SV x,y,z -components of antenna phase center position
-///                      in the BDCS ECEF coordinate system in meters; the 
+///                      in the BDCS ECEF coordinate system in meters; the
 ///                      state array must have length >=3
-/// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the 
+/// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the
 ///                      value of the computed Ek aka Eccentric Anomaly
 /// @return Anything other than 0 denotes an error
 ///
@@ -128,15 +128,13 @@ NavDataFrame::bds_ecef(double t_sec, double* state, double* Ek_ptr)
 const noexcept
 {
   int status = 0;
-  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
-                                         //+ the Kepler equation for the 
+  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively)
+                                         //+ the Kepler equation for the
                                          //+ eccentricity anomaly
   const double A  (data__[10]*data__[10]);     //  Semi-major axis
-  const double n0 (std::sqrt(MI_BDS/(A*A*A))); //  Computed mean motion (rad/sec)
-  const double toe_sec = toe__.sec().to_fractional_seconds();
-  const double tk (t_sec-toe_sec);
-#ifdef DEBUG
-  if (tk<-302400e0 || tk>302400e0) {
+  const double n0 (std::sqrt(MI_BDS/(A*A*A))); //  Computed mean motion
+(rad/sec) const double toe_sec = toe__.sec().to_fractional_seconds(); const
+double tk (t_sec-toe_sec); #ifdef DEBUG if (tk<-302400e0 || tk>302400e0) {
     std::cerr<<"\n[ERROR] NavDataFrame::gal_ecef Delta-seconds are off! WTF?";
     return -1;
   }
@@ -168,29 +166,32 @@ const noexcept
   const double vk      (std::atan2(vk_ar, vk_pr));            // True Anomaly
 
   // Second Harmonic Perturbations
-  const double Fk      (vk+data__[17]);                       // Argument of Latitude
-  const double sin2F   (std::sin(2e0*Fk));
-  const double cos2F   (std::cos(2e0*Fk));
-  const double duk     (data__[9]*sin2F  + data__[7]*cos2F);  // Argument of Latitude
+  const double Fk      (vk+data__[17]);                       // Argument of
+Latitude const double sin2F   (std::sin(2e0*Fk)); const double cos2F
+(std::cos(2e0*Fk)); const double duk     (data__[9]*sin2F  + data__[7]*cos2F);
+// Argument of Latitude
                                                         //+ Correction
-  const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius Correction
-  const double dik     (data__[14]*sin2F + data__[12]*cos2F); // Inclination Correction
+  const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius
+Correction const double dik     (data__[14]*sin2F + data__[12]*cos2F); //
+Inclination Correction
 
-  const double uk      (Fk + duk);                            // Corrected Argument 
+  const double uk      (Fk + duk);                            // Corrected
+Argument
                                                         //+ of Latitude
   const double rk      (A*(1e0-e*cosE)+drk);          // Corrected Radius
-  const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected Inclination
-                                
+  const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected
+Inclination
+
   // Positions in orbital plane
   const double xk_dot  (rk*std::cos(uk));
   const double yk_dot  (rk*std::sin(uk));
-  
+
   // Corrected longitude of ascending node
-  const double omega_k (data__[13]+(data__[18]-OMEGA_BDS)*tk-OMEGA_BDS*data__[11]);
-  const double sinOk   (std::sin(omega_k));
-  const double cosOk   (std::cos(omega_k));
-  const double cosik   (std::cos(ik));
-  
+  const double omega_k
+(data__[13]+(data__[18]-OMEGA_BDS)*tk-OMEGA_BDS*data__[11]); const double sinOk
+(std::sin(omega_k)); const double cosOk   (std::cos(omega_k)); const double
+cosik   (std::cos(ik));
+
   state[0] = xk_dot*cosOk - yk_dot*sinOk*cosik;
   state[1] = xk_dot*sinOk + yk_dot*cosOk*cosik;
   state[2] = yk_dot*std::sin(ik);

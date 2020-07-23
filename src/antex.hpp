@@ -1,11 +1,11 @@
 #ifndef __ANTEXX_HPP__
 #define __ANTEXX_HPP__
 
-#include <fstream>
-#include "satellite.hpp"
 #include "antenna.hpp"
 #include "antenna_pcv.hpp"
 #include "ggdatetime/dtcalendar.hpp"
+#include "satellite.hpp"
+#include <fstream>
 
 /// @file      antex.hpp
 ///
@@ -14,11 +14,11 @@
 /// @author    xanthos@mail.ntua.gr <br>
 ///            danast@mail.ntua.gr
 ///
-/// @date      Mon 11 Feb 2019 01:08:33 PM EET 
+/// @date      Mon 11 Feb 2019 01:08:33 PM EET
 ///
 /// @brief    Class and functions to handle ANTEX files and related information
-/// 
-/// @see       
+///
+/// @see
 ///
 /// @copyright Copyright © 2019 Dionysos Satellite Observatory, <br>
 ///            National Technical University of Athens. <br>
@@ -27,13 +27,11 @@
 ///            Version 2, as published by Sam Hocevar. See http://www.wtfpl.net/
 ///            for more details.
 
-namespace ngpt
-{
+namespace ngpt {
 
 /// @class Antex
 /// @see ftp://igs.org/pub/station/general/antex14.txt
-class Antex
-{
+class Antex {
 public:
   /// Let's not write this more than once.
   typedef std::ifstream::pos_type pos_type;
@@ -48,86 +46,78 @@ public:
   ///        set_from_file()
   Antex(){};
 
-  /// @brief Reset the instance to the Antex file given. If the instance is already
-  ///        tied to an ANTEX file, the the function will delete all curent info,
-  ///        delete the input stream and re-open it using the new passed-in file.
-  void
-  reset_to_file(const char*);
+  /// @brief Reset the instance to the Antex file given. If the instance is
+  /// already
+  ///        tied to an ANTEX file, the the function will delete all curent
+  ///        info, delete the input stream and re-open it using the new
+  ///        passed-in file.
+  void reset_to_file(const char *);
 
   /// @brief Constructor from filename.
-  explicit
-  Antex(const char*);
+  explicit Antex(const char *);
 
   /// @brief Destructor (closing the file is not mandatory, but nevertheless)
-  ~Antex() noexcept 
-  { 
-    if (__istream.is_open()) __istream.close();
+  ~Antex() noexcept {
+    if (__istream.is_open())
+      __istream.close();
   }
-  
+
   /// @brief Copy not allowed !
-  Antex(const Antex&) = delete;
+  Antex(const Antex &) = delete;
 
   /// @brief Assignment not allowed !
-  Antex& operator=(const Antex&) = delete;
-  
+  Antex &operator=(const Antex &) = delete;
+
   /// @brief Move Constructor.
-  Antex(Antex&& a)
-  noexcept(std::is_nothrow_move_constructible<std::ifstream>::value) = default;
+  Antex(Antex &&a) noexcept(
+      std::is_nothrow_move_constructible<std::ifstream>::value) = default;
 
   /// @brief Move assignment operator.
-  Antex& operator=(Antex&& a) 
-  noexcept(std::is_nothrow_move_assignable<std::ifstream>::value) = default;
+  Antex &operator=(Antex &&a) noexcept(
+      std::is_nothrow_move_assignable<std::ifstream>::value) = default;
 
-  int
-  get_antenna_pco(const ReceiverAntenna& ant_in, AntennaPcoList& pco_list,
-                  bool must_match_serial=false) noexcept;
-  int
-  get_antenna_pco(int prn, SATELLITE_SYSTEM ss, 
-                  const ngpt::datetime<ngpt::seconds>& at,
-                  AntennaPcoList& pco_list, ngpt::Satellite *sv=nullptr)
-  noexcept;
-  
-  int
-  get_satellite_info(int prn, SATELLITE_SYSTEM ss,
-                     const ngpt::datetime<ngpt::seconds>& at,
-                     ngpt::Satellite& sv) noexcept;
+  int get_antenna_pco(const ReceiverAntenna &ant_in, AntennaPcoList &pco_list,
+                      bool must_match_serial = false) noexcept;
+  int get_antenna_pco(int prn, SATELLITE_SYSTEM ss,
+                      const ngpt::datetime<ngpt::seconds> &at,
+                      AntennaPcoList &pco_list,
+                      ngpt::Satellite *sv = nullptr) noexcept;
 
-  std::string
-  filename() const noexcept {return std::string(__filename);}
+  int get_satellite_info(int prn, SATELLITE_SYSTEM ss,
+                         const ngpt::datetime<ngpt::seconds> &at,
+                         ngpt::Satellite &sv) noexcept;
+
+  std::string filename() const noexcept { return std::string(__filename); }
 
 private:
-
   /// @brief Read the instance header, and assign (most of) the fields.
-  int
-  read_header() noexcept;
+  int read_header() noexcept;
 
   /// @brief Read next antenna (from the stream)
-  int
-  read_next_antenna_type(ReceiverAntenna& antenna, char* c=nullptr) noexcept;
-    
+  int read_next_antenna_type(ReceiverAntenna &antenna,
+                             char *c = nullptr) noexcept;
+
   /// @brief Skip (current) antenna info block
-  int
-  skip_rest_of_antenna() noexcept;
-    
+  int skip_rest_of_antenna() noexcept;
+
   /// @brief Try to match a given receiver antenna to a record in the atx file.
-  int
-  find_closest_antenna_match(const ReceiverAntenna& ant_in,
-                             ReceiverAntenna& ant_out,
-                             pos_type& ant_pos) noexcept;
+  int find_closest_antenna_match(const ReceiverAntenna &ant_in,
+                                 ReceiverAntenna &ant_out,
+                                 pos_type &ant_pos) noexcept;
 
   /// @brief Try to match a given satellite antenna, for a given epoch.
-  int
-  find_satellite_antenna(int, SATELLITE_SYSTEM,
-                         const ngpt::datetime<ngpt::seconds>& at,
-                         pos_type&, ngpt::Satellite *sv=nullptr) noexcept;
+  int find_satellite_antenna(int, SATELLITE_SYSTEM,
+                             const ngpt::datetime<ngpt::seconds> &at,
+                             pos_type &,
+                             ngpt::Satellite *sv = nullptr) noexcept;
 
-  std::string            __filename;    ///< The name of the antex file.
-  std::ifstream          __istream;     ///< The infput (file) stream.
-  SATELLITE_SYSTEM       __satsys;      ///< satellite system.
-  ATX_VERSION            __version;     ///< Atx version (1.4).
-  pos_type               __end_of_head; ///< Mark the 'END OF HEADER' field.
-}; // Antex
+  std::string __filename;    ///< The name of the antex file.
+  std::ifstream __istream;   ///< The infput (file) stream.
+  SATELLITE_SYSTEM __satsys; ///< satellite system.
+  ATX_VERSION __version;     ///< Atx version (1.4).
+  pos_type __end_of_head;    ///< Mark the 'END OF HEADER' field.
+};                           // Antex
 
-} // ngpt
+} // namespace ngpt
 
 #endif

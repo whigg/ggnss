@@ -10,10 +10,10 @@
 /// @author    xanthos@mail.ntua.gr <br>
 ///            danast@mail.ntua.gr
 ///
-/// @date      Mon 11 Feb 2019 01:08:33 PM EET 
+/// @date      Mon 11 Feb 2019 01:08:33 PM EET
 ///
-/// @brief    Define the basics of GNSS observation types 
-/// 
+/// @brief    Define the basics of GNSS observation types
+///
 /// @see       RINEX v3.x
 ///
 /// @copyright Copyright © 2019 Dionysos Satellite Observatory, <br>
@@ -23,17 +23,14 @@
 ///            Version 2, as published by Sam Hocevar. See http://www.wtfpl.net/
 ///            for more details.
 
-namespace ngpt
-{
+namespace ngpt {
 
 /// @enum observable_type
 /// @see ftp://ftp.igs.org/pub/data/format/rinex304.pdf
 /// @warning Any change here should always be reflected in the functions
 ///          * ngpt::char_to_observabletype
 ///          * ngpt::observabletype_to_char
-enum class OBSERVABLE_TYPE
-: char
-{
+enum class OBSERVABLE_TYPE : char {
   pseudorange,
   carrier_phase,
   doppler,
@@ -41,7 +38,7 @@ enum class OBSERVABLE_TYPE
   ionosphere_phase_delay,  ///< rnx304, sec. 5.12
   receiver_channel_number, ///< rnx304, sec. 5.13
   any                      ///< match anything
-}; // OBSERVABLE_TYPE
+};                         // OBSERVABLE_TYPE
 
 /// TODO: what char should represent 'any'? 'any' is translated to '?' but
 /// should also work the other way around, or use e.g. ' '?
@@ -50,47 +47,42 @@ OBSERVABLE_TYPE
 char_to_observabletype(char);
 
 /// @brief Translate an OBSERVABLE_TYPE to a character
-char
-observabletype_to_char(OBSERVABLE_TYPE) noexcept;
+char observabletype_to_char(OBSERVABLE_TYPE) noexcept;
 
 /// @class Attribute
 ///
 /// @note The character '?', denotes any attribute
 ///
 /// @see ftp://ftp.igs.org/pub/data/format/rinex304.pdf
-class ObservationAttribute
-{
+class ObservationAttribute {
 public:
   /// @brief Default constructor; defaults to '?' aka any attribute
-  explicit
-  ObservationAttribute(char c='?') noexcept
-  : __c(c)
-  {}
+  explicit ObservationAttribute(char c = '?') noexcept : __c(c) {}
 
-  /// @brief Cast to char  
-  char
-  as_char() const noexcept
-  {return __c;}
+  /// @brief Cast to char
+  char as_char() const noexcept { return __c; }
 
-  bool
-  operator==(ObservationAttribute other) const noexcept {return __c==other.__c;}
-  bool
-  operator!=(ObservationAttribute other) const noexcept {return !(*this==other);}
+  bool operator==(ObservationAttribute other) const noexcept {
+    return __c == other.__c;
+  }
+  bool operator!=(ObservationAttribute other) const noexcept {
+    return !(*this == other);
+  }
 
 private:
   char __c; ///< tracking mode or channel
-}; // Attribute
+};          // Attribute
 
 /// @class ObservationCode
 ///
-/// The new signal structures for GPS, Galileo and BDS make it possible to 
-/// generate code and phase observations based on one or a combination of 
-/// several channels: Two-channel signals are composed of I and Q components, 
-/// three-channel signals of A, B, and C components. Moreover, a wideband 
-/// tracking of a combined E5a + E5b Galileo frequency is possible. In order 
-/// to keep the observation codes short but still allow for a detailed 
-/// characterization of the actual signal generation, the length of the codes 
-/// is increased from two (Version 1 and 2) to three by adding a signal 
+/// The new signal structures for GPS, Galileo and BDS make it possible to
+/// generate code and phase observations based on one or a combination of
+/// several channels: Two-channel signals are composed of I and Q components,
+/// three-channel signals of A, B, and C components. Moreover, a wideband
+/// tracking of a combined E5a + E5b Galileo frequency is possible. In order
+/// to keep the observation codes short but still allow for a detailed
+/// characterization of the actual signal generation, the length of the codes
+/// is increased from two (Version 1 and 2) to three by adding a signal
 /// generation attribute. The observation code 'tna' consists of three parts:
 ///  +-------------------+-------------+----------+---------+----------+
 ///  | t: observation    | C           | L        | D       | S        |
@@ -101,102 +93,93 @@ private:
 ///  +-------------------+---------------------------------------------+
 ///  | a: attribute      | tracking mode or channel, e.g. I, Q, etc    |
 ///  +-------------------+---------------------------------------------+
-/// 
+///
 /// Examples:
-/// - L1C: C/A code-derived L1 carrier phase (GPS, GLONASS) Carrier phase on 
+/// - L1C: C/A code-derived L1 carrier phase (GPS, GLONASS) Carrier phase on
 ///        E2-L1-E1 derived from C channel (Galileo)
 /// - C2L: L2C pseudorange derived from the L channel (GPS)
 /// - C2X: L2C pseudorange derived from the mixed (M+L) codes (GPS)
 ///
-/// @warning Unknown tracking modes are not supported in RINEX 3.02 and 3.03. 
-///          Only the complete specification of all signals is allowed i.e. 
+/// @warning Unknown tracking modes are not supported in RINEX 3.02 and 3.03.
+///          Only the complete specification of all signals is allowed i.e.
 ///          all three fields must be defined as specified
 ///
 /// @see ftp://ftp.igs.org/pub/data/format/rinex304.pdf
-class ObservationCode
-{
+class ObservationCode {
 public:
   /// @brief Default constructor
-  explicit
-  ObservationCode(OBSERVABLE_TYPE otype=OBSERVABLE_TYPE::any, int band=0,
-      ObservationAttribute att=ObservationAttribute())
-    noexcept
-    : __type(otype)
-    , __band(band)
-    , __attr(att)
-    {};
+  explicit ObservationCode(
+      OBSERVABLE_TYPE otype = OBSERVABLE_TYPE::any, int band = 0,
+      ObservationAttribute att = ObservationAttribute()) noexcept
+      : __type(otype), __band(band), __attr(att){};
 
   /// @brief Constructor from a c-string
-  explicit
-  ObservationCode(const char* str);
+  explicit ObservationCode(const char *str);
 
   /// @brief Get the instance's band (non-const)
-  int&
-  band() noexcept
-  {return __band;}
+  int &band() noexcept { return __band; }
 
   /// @brief Get the instance's band (const)
-  int
-  band() const noexcept
-  {return __band;}
+  int band() const noexcept { return __band; }
 
   /// @brief Cast to std::string
-  std::string
-  to_string() const;
+  std::string to_string() const;
 
   /// @brief compare with strict equality!
-  bool
-  operator==(const ObservationCode& other) const noexcept
-  {return __type==other.__type && (__band==other.__band && __attr==other.__attr);}
-  
-  bool
-  operator!=(const ObservationCode& other) const noexcept
-  {return !(*this == other);}
+  bool operator==(const ObservationCode &other) const noexcept {
+    return __type == other.__type &&
+           (__band == other.__band && __attr == other.__attr);
+  }
+
+  bool operator!=(const ObservationCode &other) const noexcept {
+    return !(*this == other);
+  }
 
   // @brief Template const getter function (aka instance.get<N>() with 0<=N<3)
   // @warning this is C++17
-  template<std::size_t N>
-    decltype(auto) get() const noexcept
-  {
-    static_assert(N<3);
-    if      constexpr (N==0) return __type;
-    else if constexpr (N==1) return __band;
-    else                     return __attr;
+  template <std::size_t N> decltype(auto) get() const noexcept {
+    static_assert(N < 3);
+    if constexpr (N == 0)
+      return __type;
+    else if constexpr (N == 1)
+      return __band;
+    else
+      return __attr;
   }
 
-  // @brief Template non-const getter function (aka instance.get<N>() with 0<=N<3)
-  // Notice the parenthesis at the return statement; this function returns
-  // references to the instance's members
+  // @brief Template non-const getter function (aka instance.get<N>() with
+  // 0<=N<3) Notice the parenthesis at the return statement; this function
+  // returns references to the instance's members
   // @warning this is C++17
-  template<std::size_t N>
-    decltype(auto) get() noexcept
-  {
-    static_assert(N<3);
-    if      constexpr (N==0) return (__type);
-    else if constexpr (N==1) return (__band);
-    else                     return (__attr);
+  template <std::size_t N> decltype(auto) get() noexcept {
+    static_assert(N < 3);
+    if constexpr (N == 0)
+      return (__type);
+    else if constexpr (N == 1)
+      return (__band);
+    else
+      return (__attr);
   }
 
 private:
-    OBSERVABLE_TYPE      __type;
-    int                  __band;
-    ObservationAttribute __attr;
+  OBSERVABLE_TYPE __type;
+  int __band;
+  ObservationAttribute __attr;
 }; // ObservationCode
 
-} // ngpt
+} // namespace ngpt
 
 namespace std {
 // @brief Specialize tuple_size for ngpt::ObservationCode in std (used for
 //        structured bindings)
-template<>
-  struct tuple_size<ngpt::ObservationCode> : integral_constant<size_t, 3> {};
+template <>
+struct tuple_size<ngpt::ObservationCode> : integral_constant<size_t, 3> {};
 
 // @brief Specialize tuple_element for ngpt::ObservationCode in std (used for
 //        structured bindings)
-template<size_t N>
-  struct tuple_element<N,ngpt::ObservationCode> {
-    using type = decltype(declval<ngpt::ObservationCode>().get<N>());
+template <size_t N> struct tuple_element<N, ngpt::ObservationCode> {
+  using type = decltype(declval<ngpt::ObservationCode>().get<N>());
 };
-} // std
+} // namespace std
 
 #endif

@@ -1,7 +1,7 @@
+#include "navrnx.hpp"
+#include <cerrno>
 #include <iostream>
 #include <stdexcept>
-#include <cerrno>
-#include "navrnx.hpp"
 
 using ngpt::NavDataFrame;
 
@@ -29,7 +29,7 @@ using ngpt::NavDataFrame;
 ///             data__[20] : Data sources (FLOAT --> INTEGER)
 ///             data__[21] : GAL Week # (to go with Toe)
 ///             data__[22] : Spare
-///             data__[23] : SISA Signal in space accuracy (meters) 
+///             data__[23] : SISA Signal in space accuracy (meters)
 ///             data__[24] : SV health (FLOAT converted to INTEGER)
 ///             data__[25] : BGD E5a/E1 (seconds)
 ///             data__[26] : BGD E5b/E1 (seconds)
@@ -46,7 +46,7 @@ constexpr double PI_GAL = 3.1415926535898e0;
 constexpr double MI_GAL = 3.986004418e14;
 
 /// Mean angular velocity of the Earth
-constexpr double OMEGA_GAL =  7.2921151467e-5;
+constexpr double OMEGA_GAL = 7.2921151467e-5;
 
 /// Speed of light
 constexpr double C_GAL = 299792458e0;
@@ -61,9 +61,9 @@ constexpr double F_CLOCK = -4.442807309e-10;
 /// @param[in]  t_sec    Time (in seconds) from ToE in the same system as ToE;
 ///                      this normally means GALTime (GST)
 /// @param[out] state    SV x,y,z -components of antenna phase center position
-///                      in the GTRF ECEF coordinate system in meters; the 
+///                      in the GTRF ECEF coordinate system in meters; the
 ///                      state array must have length >=3
-/// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the 
+/// @param[out] Ek_ptr   If pointer is not null, it will hold (at output) the
 ///                      value of the computed Ek aka Eccentric Anomaly
 /// @return Anything other than 0 denotes an error
 ///
@@ -76,15 +76,13 @@ NavDataFrame::gal_ecef(double t_sec, double* state, double* Ek_ptr)
 const noexcept
 {
   int status = 0;
-  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
-                                         //+ the Kepler equation for the 
+  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively)
+                                         //+ the Kepler equation for the
                                          //+ eccentricity anomaly
   const double A  (data__[10]*data__[10]);     //  Semi-major axis
-  const double n0 (std::sqrt(MI_GAL/(A*A*A))); //  Computed mean motion (rad/sec)
-  const double toe_sec = toe__.sec().to_fractional_seconds();
-  const double tk (t_sec-toe_sec);
-#ifdef DEBUG
-  if (tk<-302400e0 || tk>302400e0) {
+  const double n0 (std::sqrt(MI_GAL/(A*A*A))); //  Computed mean motion
+(rad/sec) const double toe_sec = toe__.sec().to_fractional_seconds(); const
+double tk (t_sec-toe_sec); #ifdef DEBUG if (tk<-302400e0 || tk>302400e0) {
     std::cerr<<"\n[ERROR] NavDataFrame::gal_ecef Delta-seconds are off! WTF?";
     return -1;
   }
@@ -116,29 +114,32 @@ const noexcept
   const double vk      (std::atan2(vk_ar, vk_pr));            // True Anomaly
 
   // Second Harmonic Perturbations
-  const double Fk      (vk+data__[17]);                       // Argument of Latitude
-  const double sin2F   (std::sin(2e0*Fk));
-  const double cos2F   (std::cos(2e0*Fk));
-  const double duk     (data__[9]*sin2F  + data__[7]*cos2F);  // Argument of Latitude
+  const double Fk      (vk+data__[17]);                       // Argument of
+Latitude const double sin2F   (std::sin(2e0*Fk)); const double cos2F
+(std::cos(2e0*Fk)); const double duk     (data__[9]*sin2F  + data__[7]*cos2F);
+// Argument of Latitude
                                                               //+ Correction
-  const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius Correction
-  const double dik     (data__[14]*sin2F + data__[12]*cos2F); // Inclination Correction
+  const double drk     (data__[4]*sin2F  + data__[16]*cos2F); // Radius
+Correction const double dik     (data__[14]*sin2F + data__[12]*cos2F); //
+Inclination Correction
 
-  const double uk      (Fk + duk);                            // Corrected Argument 
+  const double uk      (Fk + duk);                            // Corrected
+Argument
                                                               //+ of Latitude
-  const double rk      (A*(1e0-e*cosE)+drk);                  // Corrected Radius
-  const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected Inclination
-                                
+  const double rk      (A*(1e0-e*cosE)+drk);                  // Corrected
+Radius const double ik      (data__[15]+dik+data__[19]*tk);        // Corrected
+Inclination
+
   // Positions in orbital plane
   const double xk_dot  (rk*std::cos(uk));
   const double yk_dot  (rk*std::sin(uk));
-  
+
   // Corrected longitude of ascending node
-  const double omega_k (data__[13]+(data__[18]-OMEGA_GAL)*tk-OMEGA_GAL*data__[11]);
-  const double sinOk   (std::sin(omega_k));
-  const double cosOk   (std::cos(omega_k));
-  const double cosik   (std::cos(ik));
-  
+  const double omega_k
+(data__[13]+(data__[18]-OMEGA_GAL)*tk-OMEGA_GAL*data__[11]); const double sinOk
+(std::sin(omega_k)); const double cosOk   (std::cos(omega_k)); const double
+cosik   (std::cos(ik));
+
   state[0] = xk_dot*cosOk - yk_dot*sinOk*cosik;
   state[1] = xk_dot*sinOk + yk_dot*cosOk*cosik;
   state[2] = yk_dot*std::sin(ik);
@@ -152,21 +153,21 @@ const noexcept
    ----------------------------------------------------------------------------
 /// @brief Compute SV Clock Correction
 ///
-/// Determine the effective SV PRN code phase offset referenced to the phase 
-/// center of the antennas (∆tsv) with respect to GPS system time (t) at the 
-/// time of data transmission. This estimated correction accounts for the 
-/// deterministic SV clock error characteristics of bias, drift and aging, as 
-/// well as for the SV implementation characteristics of group delay bias and 
-/// mean differential group delay. Since these coefficients do not include 
-/// corrections for relativistic effects, the user's equipment must determine 
+/// Determine the effective SV PRN code phase offset referenced to the phase
+/// center of the antennas (∆tsv) with respect to GPS system time (t) at the
+/// time of data transmission. This estimated correction accounts for the
+/// deterministic SV clock error characteristics of bias, drift and aging, as
+/// well as for the SV implementation characteristics of group delay bias and
+/// mean differential group delay. Since these coefficients do not include
+/// corrections for relativistic effects, the user's equipment must determine
 /// the requisite relativistic correction.
-/// The user shall correct the time received from the SV with the equation 
+/// The user shall correct the time received from the SV with the equation
 /// (in seconds):
 /// t = t_sv - Δt_sv
 ///
 /// @param[in]  t     The difference t-t_oc in seconds
-/// @param[out] dt_sv SV Clock Correction in seconds; satellite clock bias 
-///                   includes relativity correction without code bias (tgd or 
+/// @param[out] dt_sv SV Clock Correction in seconds; satellite clock bias
+///                   includes relativity correction without code bias (tgd or
 ///                   bgd)
 /// @param[in]  Ein   If provided, the value to use for Eccentric Anomaly (to
 ///                   compute the relativistic error term). If not provided,
@@ -179,8 +180,8 @@ int
 NavDataFrame::gal_dtsv(double t_sec, double& dt_sv, double* Ein)
 const noexcept
 {
-  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively) 
-                                         //+ the Kepler equation for the 
+  constexpr double LIMIT  {1e-14};       //  Limit for solving (iteratively)
+                                         //+ the Kepler equation for the
                                          //+ eccentricity anomaly
   double dt = t_sec - toc__.sec().to_fractional_seconds();
 #ifdef DEBUG
@@ -224,8 +225,10 @@ const noexcept
 }
 */
 
-float
-NavDataFrame::gal_sisa() const noexcept {return static_cast<float>(data__[23]);}
+float NavDataFrame::gal_sisa() const noexcept {
+  return static_cast<float>(data__[23]);
+}
 
-int
-NavDataFrame::gal_iod_nav() const noexcept {return static_cast<int>(data__[3]);}
+int NavDataFrame::gal_iod_nav() const noexcept {
+  return static_cast<int>(data__[3]);
+}

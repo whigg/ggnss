@@ -5,23 +5,25 @@ compiler:
   - clang
 
 before_script:
+ - echo "> Installing ggdatetime [dependency]"
  - git clone https://github.com/xanthospap/ggdatetime.git && cd ggdatetime
  - mv src/Makefile.am.production src/Makefile.am
  - autoreconf -if
  - ./configure
  - make
  - sudo make install
- - cd ../
+ - echo "> Installing ggeodesy [dependency]"
  - git clone https://github.com/xanthospap/ggeodesy.git && cd ggeodesy
  - mv src/Makefile.am.production src/Makefile.am
  - autoreconf -if
  - ./configure
  - make
  - sudo make install
- - cd ../
+ - echo "> Dependencies ok; updating linker path"
  - sudo ldconfig
 
 script:
+ - echo "> Compiling ggnss [main]"
  - mv src/Makefile.am.production src/Makefile.am
  - autoreconf -if
  - ./configure
