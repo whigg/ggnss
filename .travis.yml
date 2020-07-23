@@ -11,6 +11,15 @@ before_script:
  - ./configure
  - make
  - sudo make install
+ - cd ../
+ - git clone https://github.com/xanthospap/ggeodesy.git && cd ggeodesy
+ - mv src/Makefile.am.production src/Makefile.am
+ - autoreconf -if
+ - ./configure
+ - make
+ - sudo make install
+ - cd ../
+ - sudo ldconfig
 
 script:
  - mv src/Makefile.am.production src/Makefile.am
