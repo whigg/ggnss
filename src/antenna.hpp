@@ -2,6 +2,7 @@
 #define __GNSS_ANTENNA_HPP__
 
 #include <cstddef>
+#include <string>
 
 /// @file     antenna.hpp
 ///
